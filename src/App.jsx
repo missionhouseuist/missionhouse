@@ -869,7 +869,7 @@ function App() {
             </div>
             <div className="flex items-center space-x-2">
               <Mail className="w-5 h-5" />
-              <span>bookings@missionhouse.co.uk</span>
+              <span>rental@missionhouse.co.uk</span>
             </div>
             <div className="flex items-center space-x-2">
               <MapPin className="w-5 h-5" />
