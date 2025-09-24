@@ -416,7 +416,7 @@ ${bookingFormData.name}`
     formData.append('checkout', formatDate(selectedEndDate))
     formData.append('nights', calculateNights())
     formData.append('total', `£${calculateTotal()}`)
-    formData.append('_subject', `Booking Request for Mission House - ${formatDate(selectedStartDate)} to ${formatDate(selectedEndDate)}`)
+    formData.append('_subject', `Booking Request for Mission House  - ${formatDate(selectedStartDate)} to ${formatDate(selectedEndDate)}`)
 
     try {
       // Try Formspree first (replace YOUR_FORM_ID with actual Formspree form ID)
