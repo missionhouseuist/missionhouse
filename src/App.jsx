@@ -416,11 +416,11 @@ ${bookingFormData.name}`
     formData.append('checkout', formatDate(selectedEndDate))
     formData.append('nights', calculateNights())
     formData.append('total', `£${calculateTotal()}`)
-    formData.append('_subject', `Booking Request for Mission House  - ${formatDate(selectedStartDate)} to ${formatDate(selectedEndDate)}`)
+    formData.append('_subject', `Booking Request for Mission House - ${formatDate(selectedStartDate)} to ${formatDate(selectedEndDate)}`)
 
     try {
       // Try Formspree first (replace YOUR_FORM_ID with actual Formspree form ID)
-      const response = await fetch('https://formspree.io/f/xpwyzgnk', {
+      const response = await fetch('https://formspree.io/f/YOUR_FORM_ID', {
         method: 'POST',
         body: formData,
         headers: {
@@ -458,7 +458,7 @@ ${bookingFormData.name}`
             <a href="#getting-here" className="hover:text-primary transition-colors">Getting Here</a>
             <a href="#booking" className="hover:text-primary transition-colors">Booking</a>
           </div>
-          <Button onClick={() => setShowBookingForm(true)}>Check Availability</Button>
+          <Button onClick={() => document.getElementById('booking').scrollIntoView({ behavior: 'smooth' })}>Check Availability</Button>
         </div>
       </nav>
 
@@ -495,7 +495,7 @@ ${bookingFormData.name}`
               North Uist
             </Badge>
           </div>
-          <Button size="lg" onClick={() => setShowBookingForm(true)} className="animate-bounce">
+          <Button size="lg" onClick={() => document.getElementById('booking').scrollIntoView({ behavior: 'smooth' })} className="animate-bounce">
             Book Your Stay
           </Button>
         </div>
@@ -595,7 +595,7 @@ ${bookingFormData.name}`
             <CardContent>
               <div className="text-5xl font-bold text-primary mb-4">£1,150</div>
               <p className="text-muted-foreground mb-6">per week for up to 6 guests</p>
-              <Button size="lg" onClick={() => setShowBookingForm(true)}>
+              <Button size="lg" onClick={() => document.getElementById('booking').scrollIntoView({ behavior: 'smooth' })}>
                 Check Availability
               </Button>
             </CardContent>
