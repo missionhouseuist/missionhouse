@@ -54,6 +54,15 @@ function App() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedStartDate, setSelectedStartDate] = useState(null)
   const [selectedEndDate, setSelectedEndDate] = useState(null)
+  const [bookingFormData, setBookingFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    guests: '1-2 guests',
+    message: ''
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitStatus, setSubmitStatus] = useState(null)
 
   // Sample booked dates - in a real app, this would come from a database
   const bookedDates = [
@@ -350,9 +359,89 @@ function App() {
     if (nights >= 7) {
       const weeks = Math.floor(nights / 7)
       const extraNights = nights % 7
-      return (weeks * 1000) + (extraNights * 143) // £143 per night for partial weeks
+      return (weeks * 1150) + (extraNights * 164) // £164 per night for partial weeks
     }
     return 0
+  }
+
+  const handleFormChange = (e) => {
+    setBookingFormData({
+      ...bookingFormData,
+      [e.target.name]: e.target.value
+    })
+  }
+
+  const generateMailtoLink = () => {
+    const subject = `Booking Request for Mission House - ${formatDate(selectedStartDate)} to ${formatDate(selectedEndDate)}`
+    const body = `Dear Mission House Team,
+
+I would like to request a booking for Mission House with the following details:
+
+BOOKING DETAILS:
+Check-in: ${formatDate(selectedStartDate)}
+Check-out: ${formatDate(selectedEndDate)}
+Duration: ${calculateNights()} nights
+Total Cost: £${calculateTotal()}
+
+GUEST INFORMATION:
+Name: ${bookingFormData.name}
+Email: ${bookingFormData.email}
+Phone: ${bookingFormData.phone}
+Number of Guests: ${bookingFormData.guests}
+
+SPECIAL REQUESTS:
+${bookingFormData.message || 'None'}
+
+Please confirm availability and provide booking instructions.
+
+Best regards,
+${bookingFormData.name}`
+
+    return `mailto:rental@missionhouse.co.uk?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  }
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+    setSubmitStatus(null)
+
+    // Prepare form data for Formspree
+    const formData = new FormData()
+    formData.append('name', bookingFormData.name)
+    formData.append('email', bookingFormData.email)
+    formData.append('phone', bookingFormData.phone)
+    formData.append('guests', bookingFormData.guests)
+    formData.append('message', bookingFormData.message)
+    formData.append('checkin', formatDate(selectedStartDate))
+    formData.append('checkout', formatDate(selectedEndDate))
+    formData.append('nights', calculateNights())
+    formData.append('total', `£${calculateTotal()}`)
+    formData.append('_subject', `Booking Request for Mission House - ${formatDate(selectedStartDate)} to ${formatDate(selectedEndDate)}`)
+
+    try {
+      // Try Formspree first (replace YOUR_FORM_ID with actual Formspree form ID)
+      const response = await fetch('https://formspree.io/f/YOUR_FORM_ID', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        setSubmitStatus('success')
+        setBookingFormData({ name: '', email: '', phone: '', guests: '1-2 guests', message: '' })
+      } else {
+        throw new Error('Formspree submission failed')
+      }
+    } catch (error) {
+      // Fallback to mailto if Formspree fails
+      console.log('Formspree failed, using mailto fallback')
+      window.location.href = generateMailtoLink()
+      setSubmitStatus('mailto')
+    }
+
+    setIsSubmitting(false)
   }
 
   return (
@@ -504,7 +593,7 @@ function App() {
               <CardDescription>Minimum 7 nights booking</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-5xl font-bold text-primary mb-4">£1,000</div>
+              <div className="text-5xl font-bold text-primary mb-4">£1,150</div>
               <p className="text-muted-foreground mb-6">per week for up to 6 guests</p>
               <Button size="lg" onClick={() => setShowBookingForm(true)}>
                 Check Availability
@@ -748,13 +837,13 @@ function App() {
                           {calculateNights() >= 7 && (
                             <>
                               <div className="flex justify-between">
-                                <span>{Math.floor(calculateNights() / 7)} week(s) × £1,000</span>
-                                <span>£{Math.floor(calculateNights() / 7) * 1000}</span>
+                                <span>{Math.floor(calculateNights() / 7)} week(s) × £1,150</span>
+                                <span>£{Math.floor(calculateNights() / 7) * 1150}</span>
                               </div>
                               {calculateNights() % 7 > 0 && (
                                 <div className="flex justify-between">
-                                  <span>{calculateNights() % 7} extra night(s) × £143</span>
-                                  <span>£{(calculateNights() % 7) * 143}</span>
+                                  <span>{calculateNights() % 7} extra night(s) × £164</span>
+                                  <span>£{(calculateNights() % 7) * 164}</span>
                                 </div>
                               )}
                               <div className="border-t pt-2 flex justify-between font-semibold">
@@ -805,54 +894,129 @@ function App() {
         </div>
       )}
 
-      {/* Booking Form Modal */}
+      {/* Enhanced Booking Form Modal */}
       {showBookingForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-md">
+          <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
             <CardHeader>
               <CardTitle>Request Booking</CardTitle>
-              <CardDescription>Send us your booking request</CardDescription>
+              <CardDescription>
+                {selectedStartDate && selectedEndDate 
+                  ? `${formatDate(selectedStartDate)} to ${formatDate(selectedEndDate)}`
+                  : 'Please select your dates first'
+                }
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {selectedStartDate && selectedEndDate && (
-                <div className="bg-muted p-4 rounded-lg">
-                  <p><strong>Check-in:</strong> {formatDate(selectedStartDate)}</p>
-                  <p><strong>Check-out:</strong> {formatDate(selectedEndDate)}</p>
-                  <p><strong>Duration:</strong> {calculateNights()} nights</p>
-                  <p><strong>Total:</strong> £{calculateTotal()}</p>
+            <CardContent>
+              {submitStatus === 'success' && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                  <p className="text-green-800 font-medium">✅ Booking request sent successfully!</p>
+                  <p className="text-green-600 text-sm">We'll respond within 24 hours.</p>
                 </div>
               )}
-              <div>
-                <label className="block text-sm font-medium mb-2">Your Name</label>
-                <input type="text" className="w-full p-2 border rounded-md" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Email</label>
-                <input type="email" className="w-full p-2 border rounded-md" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Phone</label>
-                <input type="tel" className="w-full p-2 border rounded-md" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Number of Guests</label>
-                <select className="w-full p-2 border rounded-md">
-                  <option>1-2 guests</option>
-                  <option>3-4 guests</option>
-                  <option>5-6 guests</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Special Requests</label>
-                <textarea className="w-full p-2 border rounded-md h-24" 
-                  placeholder="Any special requirements or questions..."></textarea>
-              </div>
-              <div className="flex space-x-2">
-                <Button className="flex-1">Send Request</Button>
-                <Button variant="outline" onClick={() => setShowBookingForm(false)}>
-                  Cancel
-                </Button>
-              </div>
+              
+              {submitStatus === 'mailto' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <p className="text-blue-800 font-medium">📧 Email client opened</p>
+                  <p className="text-blue-600 text-sm">Please send the pre-filled email to complete your booking request.</p>
+                </div>
+              )}
+
+              <form onSubmit={handleFormSubmit} className="space-y-4">
+                {selectedStartDate && selectedEndDate && (
+                  <div className="bg-muted p-4 rounded-lg">
+                    <p><strong>Check-in:</strong> {formatDate(selectedStartDate)}</p>
+                    <p><strong>Check-out:</strong> {formatDate(selectedEndDate)}</p>
+                    <p><strong>Duration:</strong> {calculateNights()} nights</p>
+                    <p><strong>Total:</strong> £{calculateTotal()}</p>
+                  </div>
+                )}
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Your Name *</label>
+                  <input 
+                    type="text" 
+                    name="name"
+                    value={bookingFormData.name}
+                    onChange={handleFormChange}
+                    className="w-full p-2 border rounded-md" 
+                    required 
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Email *</label>
+                  <input 
+                    type="email" 
+                    name="email"
+                    value={bookingFormData.email}
+                    onChange={handleFormChange}
+                    className="w-full p-2 border rounded-md" 
+                    required 
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Phone</label>
+                  <input 
+                    type="tel" 
+                    name="phone"
+                    value={bookingFormData.phone}
+                    onChange={handleFormChange}
+                    className="w-full p-2 border rounded-md" 
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Number of Guests</label>
+                  <select 
+                    name="guests"
+                    value={bookingFormData.guests}
+                    onChange={handleFormChange}
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option>1-2 guests</option>
+                    <option>3-4 guests</option>
+                    <option>5-6 guests</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Special Requests</label>
+                  <textarea 
+                    name="message"
+                    value={bookingFormData.message}
+                    onChange={handleFormChange}
+                    className="w-full p-2 border rounded-md h-24" 
+                    placeholder="Any special requirements or questions..."
+                  />
+                </div>
+                
+                <div className="flex space-x-2">
+                  <Button 
+                    type="submit" 
+                    className="flex-1" 
+                    disabled={isSubmitting || !selectedStartDate || !selectedEndDate}
+                  >
+                    {isSubmitting ? 'Sending...' : 'Send Request'}
+                  </Button>
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    onClick={() => {
+                      setShowBookingForm(false)
+                      setSubmitStatus(null)
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+                
+                <div className="text-xs text-muted-foreground">
+                  <p>* Required fields</p>
+                  <p>We'll respond to your booking request within 24 hours.</p>
+                </div>
+              </form>
             </CardContent>
           </Card>
         </div>
