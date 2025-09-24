@@ -549,10 +549,16 @@ ${bookingFormData.name}`
                 appointed holiday home. With panoramic views that change with every tide, Mission House 
                 provides a front-row seat to one of Scotland's most dramatic landscapes.
               </p>
-              <div className="bg-primary/10 rounded-lg p-4 mb-6">
+              <div className="bg-primary/10 rounded-lg p-4 mb-4">
                 <p className="font-medium text-primary mb-2">Everything Provided</p>
                 <p className="text-sm text-muted-foreground">
                   All bedding, linen, and towels are provided for your comfort and convenience.
+                </p>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+                <p className="font-medium text-amber-800 mb-2">Pet Policy</p>
+                <p className="text-sm text-amber-700">
+                  Sorry, but pets are not allowed at the property.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-4">
