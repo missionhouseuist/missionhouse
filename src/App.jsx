@@ -420,7 +420,7 @@ ${bookingFormData.name}`
 
     try {
       // Try Formspree first (replace YOUR_FORM_ID with actual Formspree form ID)
-      const response = await fetch('https://formspree.io/f/xpwyzgnk', {
+      const response = await fetch('https://formspree.io/f/YOUR_FORM_ID', {
         method: 'POST',
         body: formData,
         headers: {
@@ -431,6 +431,11 @@ ${bookingFormData.name}`
       if (response.ok) {
         setSubmitStatus('success')
         setBookingFormData({ name: '', email: '', phone: '', guests: '1-2 guests', message: '' })
+        // Close the form after 2 seconds and show success message
+        setTimeout(() => {
+          setShowBookingForm(false)
+          setSubmitStatus('success-closed')
+        }, 2000)
       } else {
         throw new Error('Formspree submission failed')
       }
@@ -891,6 +896,24 @@ ${bookingFormData.name}`
               <p className="text-sm">{selectedGalleryImage.alt}</p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Success Message After Form Closes */}
+      {submitStatus === 'success-closed' && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md text-center">
+            <CardContent className="p-8">
+              <div className="text-green-600 text-6xl mb-4">✅</div>
+              <h3 className="text-2xl font-bold mb-4">Booking Request Sent!</h3>
+              <p className="text-muted-foreground mb-6">
+                Thank you for your booking request. We'll respond within 24 hours to confirm availability and provide booking instructions.
+              </p>
+              <Button onClick={() => setSubmitStatus(null)} className="w-full">
+                Continue Browsing
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       )}
 
