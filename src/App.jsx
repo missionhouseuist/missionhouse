@@ -105,11 +105,12 @@ function App() {
           // Parse CSV line (handle quoted fields)
           const fields = line.split(',').map(field => field.replace(/"/g, '').trim())
           
-          if (fields.length >= 4) {
-            const [guestName, checkin, checkout, status] = fields
+          if (fields.length >= 6) {
+            // Updated format: Guest Name, Email, TelNo, Check-in, Check-out, Status, Guests, Notes
+            const [guestName, email, telNo, checkin, checkout, status, guests, notes] = fields
             
             // Only include confirmed bookings
-            if (status.toLowerCase() === 'confirmed' && checkin && checkout) {
+            if (status && status.toLowerCase() === 'confirmed' && checkin && checkout) {
               try {
                 const startDate = new Date(checkin)
                 const endDate = new Date(checkout)
@@ -119,7 +120,11 @@ function App() {
                   bookings.push({
                     start: startDate,
                     end: endDate,
-                    guest: guestName
+                    guest: guestName,
+                    email: email,
+                    phone: telNo,
+                    guestCount: guests,
+                    notes: notes
                   })
                 }
               } catch (error) {
