@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
@@ -63,9 +63,16 @@ function App() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState(null)
+  const [bookedDates, setBookedDates] = useState([])
+  const [isLoadingBookings, setIsLoadingBookings] = useState(true)
 
-  // Sample booked dates - in a real app, this would come from a database
-  const bookedDates = [
+  // Google Sheets configuration
+  const SHEET_ID = '1Q5BP29Dp4ONQ6OxWJ3PXfC1odzWkloPFIQ_T11aamBQ'
+  const SHEET_NAME = 'Mission House Bookings'
+  const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`
+
+  // Fallback booked dates if Google Sheets fails
+  const fallbackBookedDates = [
     // October 2024
     { start: new Date(2024, 9, 5), end: new Date(2024, 9, 12) },
     { start: new Date(2024, 9, 20), end: new Date(2024, 9, 27) },
@@ -81,6 +88,68 @@ function App() {
     { start: new Date(2025, 2, 8), end: new Date(2025, 2, 15) },
     { start: new Date(2025, 2, 29), end: new Date(2025, 3, 5) },
   ]
+
+  // Fetch bookings from Google Sheets
+  const fetchBookingsFromSheet = async () => {
+    try {
+      setIsLoadingBookings(true)
+      const response = await fetch(SHEET_URL)
+      const csvText = await response.text()
+      
+      // Parse CSV data
+      const lines = csvText.split('\n').slice(1) // Skip header row
+      const bookings = []
+      
+      for (const line of lines) {
+        if (line.trim()) {
+          // Parse CSV line (handle quoted fields)
+          const fields = line.split(',').map(field => field.replace(/"/g, '').trim())
+          
+          if (fields.length >= 4) {
+            const [guestName, checkin, checkout, status] = fields
+            
+            // Only include confirmed bookings
+            if (status.toLowerCase() === 'confirmed' && checkin && checkout) {
+              try {
+                const startDate = new Date(checkin)
+                const endDate = new Date(checkout)
+                
+                // Validate dates
+                if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+                  bookings.push({
+                    start: startDate,
+                    end: endDate,
+                    guest: guestName
+                  })
+                }
+              } catch (error) {
+                console.warn('Invalid date format in booking:', checkin, checkout)
+              }
+            }
+          }
+        }
+      }
+      
+      setBookedDates(bookings)
+      console.log(`Loaded ${bookings.length} confirmed bookings from Google Sheets`)
+      
+    } catch (error) {
+      console.warn('Failed to load bookings from Google Sheets, using fallback data:', error)
+      setBookedDates(fallbackBookedDates)
+    } finally {
+      setIsLoadingBookings(false)
+    }
+  }
+
+  // Load bookings on component mount
+  useEffect(() => {
+    fetchBookingsFromSheet()
+    
+    // Refresh bookings every 5 minutes
+    const interval = setInterval(fetchBookingsFromSheet, 5 * 60 * 1000)
+    
+    return () => clearInterval(interval)
+  }, [])
 
   const isDateBooked = (date) => {
     return bookedDates.some(booking => 
@@ -786,6 +855,11 @@ ${bookingFormData.name}`
                 <CardTitle className="text-2xl text-center">Availability Calendar</CardTitle>
                 <CardDescription className="text-center">
                   Select your arrival and departure dates (minimum 7 nights)
+                  {isLoadingBookings && (
+                    <div className="text-sm text-muted-foreground mt-2">
+                      📅 Loading latest availability...
+                    </div>
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent>
