@@ -136,18 +136,6 @@ function App() {
       }
       
       setBookedDates(bookings)
-      console.log(`Loaded ${bookings.length} confirmed bookings from Google Sheets`)
-      
-      // Debug: Show all loaded bookings
-      bookings.forEach((booking, index) => {
-        console.log(`Booking ${index + 1}:`, {
-          guest: booking.guest,
-          start: booking.start.toDateString(),
-          end: booking.end.toDateString(),
-          startTime: booking.start.getTime(),
-          endTime: booking.end.getTime()
-        })
-      })
       
     } catch (error) {
       console.warn('Failed to load bookings from Google Sheets, using fallback data:', error)
@@ -205,12 +193,15 @@ function App() {
     const isCheckout = isDateCheckoutDay(date)
     const isFullyBooked = isDateBooked(date)
     
-    // Debug logging
-    if (isCheckout) {
-      console.log(`Date ${date.toDateString()}: checkout=${isCheckout}, fullyBooked=${isFullyBooked}`)
-    }
-    
     return isCheckout && !isFullyBooked
+  }
+
+  const isDateConfirmedTurnoverDay = (date) => {
+    // A confirmed turnover day is a checkout day that's also a check-in day (booked for new guests)
+    const isCheckout = isDateCheckoutDay(date)
+    const isCheckin = isDateCheckinDay(date)
+    
+    return isCheckout && isCheckin
   }
 
   const isDateInPast = (date) => {
@@ -381,21 +372,14 @@ function App() {
     const isFullyBooked = isDateBooked(clickedDate)
     const isTurnover = isDateTurnoverDay(clickedDate)
     
-    console.log(`Clicked date ${clickedDate.toDateString()}: past=${isPast}, fullyBooked=${isFullyBooked}, turnover=${isTurnover}`)
-    
     if (isPast || (isFullyBooked && !isTurnover)) {
-      console.log('Date click blocked')
       return
     }
-    
-    console.log('Date click allowed, proceeding...')
 
     if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
-      console.log('Setting start date:', clickedDate.toDateString())
       setSelectedStartDate(clickedDate)
       setSelectedEndDate(null)
     } else if (clickedDate < selectedStartDate) {
-      console.log('Resetting start date to earlier date:', clickedDate.toDateString())
       setSelectedStartDate(clickedDate)
       setSelectedEndDate(null)
     } else {
@@ -426,19 +410,10 @@ function App() {
                (bookingStartCheck <= startCheck && bookingEndCheck >= endCheck)
       })
       
-      console.log('Booking validation:', {
-        selectedStart: selectedStartDate.toDateString(),
-        selectedEnd: clickedDate.toDateString(),
-        hasConflicts: hasBookedDatesBetween,
-        isStartTurnover: isDateTurnoverDay(selectedStartDate)
-      })
-      
       if (hasBookedDatesBetween) {
-        console.log('Booked dates between, resetting to new start date:', clickedDate.toDateString())
         setSelectedStartDate(clickedDate)
         setSelectedEndDate(null)
       } else {
-        console.log('Setting end date:', clickedDate.toDateString())
         setSelectedEndDate(clickedDate)
       }
     }
@@ -468,13 +443,11 @@ function App() {
       const isBooked = isDateBooked(date)
       const isPast = isDateInPast(date)
       const isTurnover = isDateTurnoverDay(date)
+      const isConfirmedTurnover = isDateConfirmedTurnoverDay(date)
       const isCheckout = isDateCheckoutDay(date)
       const isCheckin = isDateCheckinDay(date)
       
-      // Debug turnover days
-      if (isCheckout) {
-        console.log(`Date ${date.toDateString()} is checkout day: booked=${isBooked}, turnover=${isTurnover}`)
-      }
+
       const isSelected = (selectedStartDate && date.getTime() === selectedStartDate.getTime()) ||
                         (selectedEndDate && date.getTime() === selectedEndDate.getTime())
       const isInRange = selectedStartDate && selectedEndDate && 
@@ -485,6 +458,8 @@ function App() {
       
       if (isPast) {
         className += "text-muted-foreground/50 cursor-not-allowed"
+      } else if (isConfirmedTurnover) {
+        className += "bg-purple-200 text-purple-900 border-2 border-purple-400 font-semibold cursor-not-allowed"
       } else if (isBooked && !isTurnover) {
         className += "bg-red-100 text-red-800 cursor-not-allowed"
       } else if (isTurnover) {
@@ -502,11 +477,18 @@ function App() {
           key={day}
           className={className}
           onClick={() => handleDateClick(day)}
-          title={isTurnover ? "Turnover day - available for check-in" : ""}
+          title={
+            isConfirmedTurnover ? "Confirmed turnover day - checkout & check-in" :
+            isTurnover ? "Turnover day - available for check-in" : ""
+          }
         >
           {dayContent}
-          {isTurnover && (
-            <div className="absolute top-0 right-0 text-xs text-orange-700 font-bold bg-orange-400 rounded-bl px-1">
+          {(isTurnover || isConfirmedTurnover) && (
+            <div className={`absolute top-0 right-0 text-xs font-bold rounded-bl px-1 ${
+              isConfirmedTurnover 
+                ? 'text-purple-700 bg-purple-400' 
+                : 'text-orange-700 bg-orange-400'
+            }`}>
               ↻
             </div>
           )}
@@ -1006,6 +988,12 @@ ${bookingFormData.name}`
                         <span>Turnover Day (Available)</span>
                       </div>
                       <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 bg-purple-200 border-2 border-purple-400 rounded relative">
+                          <div className="absolute top-0 right-0 text-xs text-purple-700 font-bold">↻</div>
+                        </div>
+                        <span>Confirmed Turnover Day</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
                         <div className="w-4 h-4 bg-primary rounded"></div>
                         <span>Selected</span>
                       </div>
@@ -1221,10 +1209,6 @@ ${bookingFormData.name}`
                     type="submit" 
                     className="flex-1" 
                     disabled={isSubmitting || !selectedStartDate || !selectedEndDate}
-                    onClick={() => {
-                      console.log('Send Request clicked. Start date:', selectedStartDate, 'End date:', selectedEndDate)
-                      console.log('Button disabled?', isSubmitting || !selectedStartDate || !selectedEndDate)
-                    }}
                   >
                     {isSubmitting ? 'Sending...' : 'Send Request'}
                   </Button>
