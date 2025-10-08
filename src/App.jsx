@@ -138,6 +138,17 @@ function App() {
       setBookedDates(bookings)
       console.log(`Loaded ${bookings.length} confirmed bookings from Google Sheets`)
       
+      // Debug: Show all loaded bookings
+      bookings.forEach((booking, index) => {
+        console.log(`Booking ${index + 1}:`, {
+          guest: booking.guest,
+          start: booking.start.toDateString(),
+          end: booking.end.toDateString(),
+          startTime: booking.start.getTime(),
+          endTime: booking.end.getTime()
+        })
+      })
+      
     } catch (error) {
       console.warn('Failed to load bookings from Google Sheets, using fallback data:', error)
       setBookedDates(fallbackBookedDates)
@@ -437,6 +448,11 @@ function App() {
       const isTurnover = isDateTurnoverDay(date)
       const isCheckout = isDateCheckoutDay(date)
       const isCheckin = isDateCheckinDay(date)
+      
+      // Debug turnover days
+      if (isCheckout) {
+        console.log(`Date ${date.toDateString()} is checkout day: booked=${isBooked}, turnover=${isTurnover}`)
+      }
       const isSelected = (selectedStartDate && date.getTime() === selectedStartDate.getTime()) ||
                         (selectedEndDate && date.getTime() === selectedEndDate.getTime())
       const isInRange = selectedStartDate && selectedEndDate && 
