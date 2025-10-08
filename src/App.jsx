@@ -163,19 +163,30 @@ function App() {
   }
 
   const isDateCheckoutDay = (date) => {
-    return bookedDates.some(booking => 
-      date.getTime() === booking.end.getTime()
-    )
+    return bookedDates.some(booking => {
+      const checkoutDate = new Date(booking.end)
+      return date.getFullYear() === checkoutDate.getFullYear() &&
+             date.getMonth() === checkoutDate.getMonth() &&
+             date.getDate() === checkoutDate.getDate()
+    })
   }
 
   const isDateCheckinDay = (date) => {
-    return bookedDates.some(booking => 
-      date.getTime() === booking.start.getTime()
-    )
+    return bookedDates.some(booking => {
+      const checkinDate = new Date(booking.start)
+      return date.getFullYear() === checkinDate.getFullYear() &&
+             date.getMonth() === checkinDate.getMonth() &&
+             date.getDate() === checkinDate.getDate()
+    })
   }
 
   const isDateTurnoverDay = (date) => {
-    return isDateCheckoutDay(date) && !isDateBooked(date)
+    // A turnover day is a checkout day that's not also a check-in day for another booking
+    const isCheckout = isDateCheckoutDay(date)
+    const isCheckin = isDateCheckinDay(date)
+    const isFullyBooked = isDateBooked(date)
+    
+    return isCheckout && !isFullyBooked && !isCheckin
   }
 
   const isDateInPast = (date) => {
@@ -341,7 +352,12 @@ function App() {
   const handleDateClick = (day) => {
     const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day)
     
-    if (isDateInPast(clickedDate) || (isDateBooked(clickedDate) && !isDateTurnoverDay(clickedDate))) {
+    // Allow clicks on: future dates, available dates, and turnover days
+    const isPast = isDateInPast(clickedDate)
+    const isFullyBooked = isDateBooked(clickedDate)
+    const isTurnover = isDateTurnoverDay(clickedDate)
+    
+    if (isPast || (isFullyBooked && !isTurnover)) {
       return
     }
 
@@ -406,7 +422,7 @@ function App() {
       } else if (isBooked && !isTurnover) {
         className += "bg-red-100 text-red-800 cursor-not-allowed"
       } else if (isTurnover) {
-        className += "bg-gradient-to-r from-pink-200 to-white text-gray-800 hover:from-pink-300 hover:to-gray-100"
+        className += "bg-orange-200 text-orange-900 border-2 border-orange-400 hover:bg-orange-300 font-semibold"
       } else if (isSelected) {
         className += "bg-primary text-primary-foreground"
       } else if (isInRange) {
@@ -424,8 +440,8 @@ function App() {
         >
           {dayContent}
           {isTurnover && (
-            <div className="absolute bottom-0 left-0 right-0 text-xs text-pink-600 font-medium">
-              T
+            <div className="absolute top-0 right-0 text-xs text-orange-700 font-bold bg-orange-400 rounded-bl px-1">
+              ↻
             </div>
           )}
         </div>
@@ -918,7 +934,9 @@ ${bookingFormData.name}`
                         <span>Booked</span>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <div className="w-4 h-4 bg-gradient-to-r from-pink-200 to-white border rounded"></div>
+                        <div className="w-4 h-4 bg-orange-200 border-2 border-orange-400 rounded relative">
+                          <div className="absolute top-0 right-0 text-xs text-orange-700 font-bold">↻</div>
+                        </div>
                         <span>Turnover Day (Available)</span>
                       </div>
                       <div className="flex items-center space-x-2">
