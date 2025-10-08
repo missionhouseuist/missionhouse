@@ -158,8 +158,24 @@ function App() {
 
   const isDateBooked = (date) => {
     return bookedDates.some(booking => 
-      date >= booking.start && date <= booking.end
+      date > booking.start && date < booking.end
     )
+  }
+
+  const isDateCheckoutDay = (date) => {
+    return bookedDates.some(booking => 
+      date.getTime() === booking.end.getTime()
+    )
+  }
+
+  const isDateCheckinDay = (date) => {
+    return bookedDates.some(booking => 
+      date.getTime() === booking.start.getTime()
+    )
+  }
+
+  const isDateTurnoverDay = (date) => {
+    return isDateCheckoutDay(date) && !isDateBooked(date)
   }
 
   const isDateInPast = (date) => {
@@ -325,7 +341,7 @@ function App() {
   const handleDateClick = (day) => {
     const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day)
     
-    if (isDateInPast(clickedDate) || isDateBooked(clickedDate)) {
+    if (isDateInPast(clickedDate) || (isDateBooked(clickedDate) && !isDateTurnoverDay(clickedDate))) {
       return
     }
 
@@ -374,17 +390,23 @@ function App() {
       const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day)
       const isBooked = isDateBooked(date)
       const isPast = isDateInPast(date)
+      const isTurnover = isDateTurnoverDay(date)
+      const isCheckout = isDateCheckoutDay(date)
+      const isCheckin = isDateCheckinDay(date)
       const isSelected = (selectedStartDate && date.getTime() === selectedStartDate.getTime()) ||
                         (selectedEndDate && date.getTime() === selectedEndDate.getTime())
       const isInRange = selectedStartDate && selectedEndDate && 
                        date > selectedStartDate && date < selectedEndDate
 
-      let className = "p-2 text-center cursor-pointer rounded-md transition-colors "
+      let className = "p-2 text-center cursor-pointer rounded-md transition-colors relative "
+      let dayContent = day
       
       if (isPast) {
         className += "text-muted-foreground/50 cursor-not-allowed"
-      } else if (isBooked) {
+      } else if (isBooked && !isTurnover) {
         className += "bg-red-100 text-red-800 cursor-not-allowed"
+      } else if (isTurnover) {
+        className += "bg-gradient-to-r from-pink-200 to-white text-gray-800 hover:from-pink-300 hover:to-gray-100"
       } else if (isSelected) {
         className += "bg-primary text-primary-foreground"
       } else if (isInRange) {
@@ -398,8 +420,14 @@ function App() {
           key={day}
           className={className}
           onClick={() => handleDateClick(day)}
+          title={isTurnover ? "Turnover day - available for check-in" : ""}
         >
-          {day}
+          {dayContent}
+          {isTurnover && (
+            <div className="absolute bottom-0 left-0 right-0 text-xs text-pink-600 font-medium">
+              T
+            </div>
+          )}
         </div>
       )
     }
@@ -619,8 +647,8 @@ ${bookingFormData.name}`
             <div>
               <h3 className="text-3xl font-bold mb-6">Modern Comfort in Wild Beauty</h3>
               <p className="text-lg text-muted-foreground mb-6">
-                Experience the raw beauty of the Outer Hebrides from the comfort of this beautifully 
-                appointed holiday home. With panoramic views that change with every tide, Mission House 
+                Experience the raw beauty of the Outer Hebrides from the comfort of this comfortable 
+                and well-equipped holiday home. With panoramic views that change with every tide, Mission House 
                 provides a front-row seat to one of Scotland's most dramatic landscapes.
               </p>
               <div className="bg-primary/10 rounded-lg p-4 mb-4">
@@ -888,6 +916,10 @@ ${bookingFormData.name}`
                       <div className="flex items-center space-x-2">
                         <div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div>
                         <span>Booked</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 bg-gradient-to-r from-pink-200 to-white border rounded"></div>
+                        <span>Turnover Day (Available)</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <div className="w-4 h-4 bg-primary rounded"></div>
