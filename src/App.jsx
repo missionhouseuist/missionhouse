@@ -157,9 +157,18 @@ function App() {
   }, [])
 
   const isDateBooked = (date) => {
-    return bookedDates.some(booking => 
-      date > booking.start && date < booking.end
-    )
+    return bookedDates.some(booking => {
+      const startDate = new Date(booking.start)
+      const endDate = new Date(booking.end)
+      
+      // Set all times to midnight for proper date comparison
+      const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+      const bookingStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())
+      const bookingEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate())
+      
+      // Date is booked if it's between start and end (exclusive of end date for turnover)
+      return checkDate >= bookingStart && checkDate < bookingEnd
+    })
   }
 
   const isDateCheckoutDay = (date) => {
@@ -181,12 +190,16 @@ function App() {
   }
 
   const isDateTurnoverDay = (date) => {
-    // A turnover day is a checkout day that's not also a check-in day for another booking
+    // A turnover day is a checkout day that's available for new bookings
     const isCheckout = isDateCheckoutDay(date)
-    const isCheckin = isDateCheckinDay(date)
     const isFullyBooked = isDateBooked(date)
     
-    return isCheckout && !isFullyBooked && !isCheckin
+    // Debug logging
+    if (isCheckout) {
+      console.log(`Date ${date.toDateString()}: checkout=${isCheckout}, fullyBooked=${isFullyBooked}`)
+    }
+    
+    return isCheckout && !isFullyBooked
   }
 
   const isDateInPast = (date) => {
@@ -357,27 +370,42 @@ function App() {
     const isFullyBooked = isDateBooked(clickedDate)
     const isTurnover = isDateTurnoverDay(clickedDate)
     
+    console.log(`Clicked date ${clickedDate.toDateString()}: past=${isPast}, fullyBooked=${isFullyBooked}, turnover=${isTurnover}`)
+    
     if (isPast || (isFullyBooked && !isTurnover)) {
+      console.log('Date click blocked')
       return
     }
+    
+    console.log('Date click allowed, proceeding...')
 
     if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
+      console.log('Setting start date:', clickedDate.toDateString())
       setSelectedStartDate(clickedDate)
       setSelectedEndDate(null)
     } else if (clickedDate < selectedStartDate) {
+      console.log('Resetting start date to earlier date:', clickedDate.toDateString())
       setSelectedStartDate(clickedDate)
       setSelectedEndDate(null)
     } else {
-      // Check if there are any booked dates between start and end
-      const hasBookedDatesBetween = bookedDates.some(booking => 
-        (booking.start > selectedStartDate && booking.start < clickedDate) ||
-        (booking.end > selectedStartDate && booking.end < clickedDate)
-      )
+      // Check if there are any booked dates between start and end (excluding turnover days)
+      const hasBookedDatesBetween = bookedDates.some(booking => {
+        const bookingStart = new Date(booking.start)
+        const bookingEnd = new Date(booking.end)
+        
+        // Check if any part of the booking period overlaps with our selected range
+        // But exclude the exact end dates (turnover days)
+        return (bookingStart > selectedStartDate && bookingStart < clickedDate) ||
+               (bookingEnd > selectedStartDate && bookingEnd < clickedDate) ||
+               (bookingStart < selectedStartDate && bookingEnd > selectedStartDate && bookingEnd < clickedDate)
+      })
       
       if (hasBookedDatesBetween) {
+        console.log('Booked dates between, resetting to new start date:', clickedDate.toDateString())
         setSelectedStartDate(clickedDate)
         setSelectedEndDate(null)
       } else {
+        console.log('Setting end date:', clickedDate.toDateString())
         setSelectedEndDate(clickedDate)
       }
     }
@@ -1155,6 +1183,10 @@ ${bookingFormData.name}`
                     type="submit" 
                     className="flex-1" 
                     disabled={isSubmitting || !selectedStartDate || !selectedEndDate}
+                    onClick={() => {
+                      console.log('Send Request clicked. Start date:', selectedStartDate, 'End date:', selectedEndDate)
+                      console.log('Button disabled?', isSubmitting || !selectedStartDate || !selectedEndDate)
+                    }}
                   >
                     {isSubmitting ? 'Sending...' : 'Send Request'}
                   </Button>
