@@ -404,11 +404,33 @@ function App() {
         const bookingStart = new Date(booking.start)
         const bookingEnd = new Date(booking.end)
         
-        // Check if any part of the booking period overlaps with our selected range
-        // But exclude the exact end dates (turnover days)
-        return (bookingStart > selectedStartDate && bookingStart < clickedDate) ||
-               (bookingEnd > selectedStartDate && bookingEnd < clickedDate) ||
-               (bookingStart < selectedStartDate && bookingEnd > selectedStartDate && bookingEnd < clickedDate)
+        // Normalize dates to midnight for comparison
+        const startCheck = new Date(selectedStartDate.getFullYear(), selectedStartDate.getMonth(), selectedStartDate.getDate())
+        const endCheck = new Date(clickedDate.getFullYear(), clickedDate.getMonth(), clickedDate.getDate())
+        const bookingStartCheck = new Date(bookingStart.getFullYear(), bookingStart.getMonth(), bookingStart.getDate())
+        const bookingEndCheck = new Date(bookingEnd.getFullYear(), bookingEnd.getMonth(), bookingEnd.getDate())
+        
+        // Check if booking overlaps with our selected range
+        // Allow if our start date is a checkout day (turnover)
+        const isStartDateTurnover = isDateTurnoverDay(selectedStartDate)
+        const isEndDateTurnover = isDateTurnoverDay(clickedDate)
+        
+        // If we're starting on a turnover day, allow the booking
+        if (isStartDateTurnover && startCheck.getTime() === bookingEndCheck.getTime()) {
+          return false // No conflict - we're starting on a checkout day
+        }
+        
+        // Check for actual conflicts (booking periods that overlap)
+        return (bookingStartCheck > startCheck && bookingStartCheck < endCheck) ||
+               (bookingEndCheck > startCheck && bookingEndCheck < endCheck) ||
+               (bookingStartCheck <= startCheck && bookingEndCheck >= endCheck)
+      })
+      
+      console.log('Booking validation:', {
+        selectedStart: selectedStartDate.toDateString(),
+        selectedEnd: clickedDate.toDateString(),
+        hasConflicts: hasBookedDatesBetween,
+        isStartTurnover: isDateTurnoverDay(selectedStartDate)
       })
       
       if (hasBookedDatesBetween) {
