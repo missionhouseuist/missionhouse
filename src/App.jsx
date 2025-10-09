@@ -157,16 +157,13 @@ function App() {
 
   const isDateBooked = (date) => {
     return bookedDates.some(booking => {
-      const startDate = new Date(booking.start)
-      const endDate = new Date(booking.end)
-      
-      // Set all times to midnight for proper date comparison
+      const bookingStart = new Date(booking.start.getFullYear(), booking.start.getMonth(), booking.start.getDate())
+      const bookingEnd = new Date(booking.end.getFullYear(), booking.end.getMonth(), booking.end.getDate())
       const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-      const bookingStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())
-      const bookingEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate())
       
-      // Date is booked if it's between start and end (exclusive of end date for turnover)
-      return checkDate >= bookingStart && checkDate < bookingEnd
+      // A date is booked if it's between start (exclusive) and end (exclusive)
+      // This means both checkout days AND check-in days are available for turnover bookings
+      return checkDate > bookingStart && checkDate < bookingEnd
     })
   }
 
