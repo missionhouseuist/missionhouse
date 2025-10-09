@@ -98,19 +98,21 @@ function App() {
       const csvText = await response.text()
       
       // Parse CSV data
-      const lines = csvText.split('\n').slice(1) // Skip header row
+      const lines = csvText.split('\n')
       const bookings = []
+      const pricing = {}
       
-      for (const line of lines) {
+      for (let i = 1; i < lines.length; i++) { // Start from 1 to skip header
+        const line = lines[i]
         if (line.trim()) {
           // Parse CSV line (handle quoted fields)
           const fields = line.split(',').map(field => field.replace(/"/g, '').trim())
           
           if (fields.length >= 6) {
-            // Updated format: Guest Name, Email, TelNo, Check-in, Check-out, Status, Guests, Notes
-            const [guestName, email, telNo, checkin, checkout, status, guests, notes] = fields
+            // Columns: A-Guest Name, B-Email, C-TelNo, D-Check-in, E-Check-out, F-Status, G-Guests, H-Notes, I-Rate/wk, J-Month, K-Weekly Price, L-Comment, M-Additional
+            const [guestName, email, telNo, checkin, checkout, status, guests, notes, rateWk, month, weeklyPrice, comment, additional] = fields
             
-            // Only include confirmed bookings
+            // Parse booking data (columns A-H)
             if (status && status.toLowerCase() === 'confirmed' && checkin && checkout) {
               try {
                 const startDate = new Date(checkin)
@@ -132,32 +134,28 @@ function App() {
                 console.warn('Invalid date format in booking:', checkin, checkout)
               }
             }
+            
+            // Parse pricing data (columns J-M which are indices 9-12)
+            if (month && weeklyPrice) {
+              const monthName = month.trim()
+              const price = parseFloat(weeklyPrice)
+              const additionalCharge = parseFloat(additional) || 0
+              
+              if (!isNaN(price) && monthName.length === 3) {
+                pricing[monthName] = {
+                  weeklyPrice: price,
+                  comment: comment || '',
+                  additional: additionalCharge
+                }
+              }
+            }
           }
         }
       }
       
       setBookedDates(bookings)
-      
-      // Load pricing data from columns K-N
-      const pricingData = {}
-      for (let i = 1; i < data.values.length; i++) {
-        const row = data.values[i]
-        if (row[10] && row[11]) { // Column K (Month) and L (Weekly Price)
-          const month = row[10].trim()
-          const weeklyPrice = parseFloat(row[11])
-          const comment = row[12] || ''
-          const additional = parseFloat(row[13]) || 0
-          
-          if (!isNaN(weeklyPrice)) {
-            pricingData[month] = {
-              weeklyPrice,
-              comment,
-              additional
-            }
-          }
-        }
-      }
-      setPricingData(pricingData)
+      setPricingData(pricing)
+      console.log('Loaded pricing data:', pricing) // Debug log
       
     } catch (error) {
       console.warn('Failed to load bookings from Google Sheets, using fallback data:', error)
@@ -885,10 +883,10 @@ ${bookingFormData.name}`
                 <CardDescription className="text-lg">Minimum 7 nights booking required</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid md:grid-cols-2 gap-6 mb-6">
                   <div className="text-center p-6 bg-primary/5 rounded-lg">
                     <div className="text-4xl font-bold text-primary mb-2">
-                      {Object.keys(pricingData).length > 0 ? '£950 - £1,350' : '£1,150'}
+                      {Object.keys(pricingData).length > 0 ? '£750 - £1,300' : '£1,150'}
                     </div>
                     <p className="text-muted-foreground">per week (seasonal pricing)</p>
                   </div>
@@ -897,6 +895,33 @@ ${bookingFormData.name}`
                     <p className="text-muted-foreground">guests included</p>
                   </div>
                 </div>
+
+                {/* Mini Pricing Table */}
+                {Object.keys(pricingData).length > 0 && (
+                  <div className="border-t pt-6">
+                    <h4 className="font-semibold text-lg mb-4 text-center">Quick Pricing Reference</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((month) => {
+                        const pricing = pricingData[month]
+                        if (pricing) {
+                          return (
+                            <div key={month} className="text-center p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
+                              <div className="text-sm font-medium text-muted-foreground mb-1">{month}</div>
+                              <div className="text-lg font-bold">£{pricing.weeklyPrice}</div>
+                              {pricing.additional > 0 && (
+                                <div className="text-xs text-amber-600 mt-1">+£{pricing.additional}</div>
+                              )}
+                            </div>
+                          )
+                        }
+                        return null
+                      })}
+                    </div>
+                    <p className="text-sm text-center text-muted-foreground mt-4">
+                      <strong>Christmas & New Year Surcharge:</strong> Weeks containing December 25th or January 1st include an additional charge (shown above in amber).
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
