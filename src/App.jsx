@@ -63,6 +63,7 @@ function App() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState(null)
+  const [pricingData, setPricingData] = useState({})
   const [bookedDates, setBookedDates] = useState([])
   const [isLoadingBookings, setIsLoadingBookings] = useState(true)
 
@@ -136,6 +137,27 @@ function App() {
       }
       
       setBookedDates(bookings)
+      
+      // Load pricing data from columns K-N
+      const pricingData = {}
+      for (let i = 1; i < data.values.length; i++) {
+        const row = data.values[i]
+        if (row[10] && row[11]) { // Column K (Month) and L (Weekly Price)
+          const month = row[10].trim()
+          const weeklyPrice = parseFloat(row[11])
+          const comment = row[12] || ''
+          const additional = parseFloat(row[13]) || 0
+          
+          if (!isNaN(weeklyPrice)) {
+            pricingData[month] = {
+              weeklyPrice,
+              comment,
+              additional
+            }
+          }
+        }
+      }
+      setPricingData(pricingData)
       
     } catch (error) {
       console.warn('Failed to load bookings from Google Sheets, using fallback data:', error)
@@ -218,6 +240,37 @@ function App() {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     return date < today
+  }
+
+  const getMonthName = (monthIndex) => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    return months[monthIndex]
+  }
+
+  const getWeeklyPrice = (startDate) => {
+    const monthName = getMonthName(startDate.getMonth())
+    return pricingData[monthName]?.weeklyPrice || 1150 // fallback to default
+  }
+
+  const getChristmasNewYearSurcharge = (startDate, endDate) => {
+    // Check if the booking period contains Dec 25th or Jan 1st
+    const christmas = new Date(startDate.getFullYear(), 11, 25) // Dec 25
+    const newYear = new Date(startDate.getFullYear() + 1, 0, 1) // Jan 1 next year
+    
+    // Also check previous year's Jan 1st in case booking spans years
+    const prevNewYear = new Date(startDate.getFullYear(), 0, 1) // Jan 1 this year
+    
+    const containsChristmas = christmas >= startDate && christmas < endDate
+    const containsNewYear = newYear >= startDate && newYear < endDate
+    const containsPrevNewYear = prevNewYear >= startDate && prevNewYear < endDate
+    
+    if (containsChristmas || containsNewYear || containsPrevNewYear) {
+      const monthName = getMonthName(startDate.getMonth())
+      return pricingData[monthName]?.additional || 0
+    }
+    
+    return 0
   }
 
   const heroImages = [
@@ -538,13 +591,43 @@ function App() {
   }
 
   const calculateTotal = () => {
+    if (!selectedStartDate || !selectedEndDate) return 0
+    
     const nights = calculateNights()
-    if (nights >= 7) {
-      const weeks = Math.floor(nights / 7)
-      const extraNights = nights % 7
-      return (weeks * 1150) + (extraNights * 164) // £164 per night for partial weeks
-    }
-    return 0
+    if (nights < 7) return 0
+    
+    // Get the weekly price for the start month
+    const weeklyPrice = getWeeklyPrice(selectedStartDate)
+    
+    // Calculate base price
+    const weeks = Math.floor(nights / 7)
+    const extraNights = nights % 7
+    const dailyRate = Math.round(weeklyPrice / 7) // Calculate daily rate from weekly price
+    const basePrice = (weeks * weeklyPrice) + (extraNights * dailyRate)
+    
+    // Add Christmas/New Year surcharge if applicable
+    const surcharge = getChristmasNewYearSurcharge(selectedStartDate, selectedEndDate)
+    
+    return basePrice + surcharge
+  }
+  
+  const calculateBasePrice = () => {
+    if (!selectedStartDate || !selectedEndDate) return 0
+    
+    const nights = calculateNights()
+    if (nights < 7) return 0
+    
+    const weeklyPrice = getWeeklyPrice(selectedStartDate)
+    const weeks = Math.floor(nights / 7)
+    const extraNights = nights % 7
+    const dailyRate = Math.round(weeklyPrice / 7)
+    
+    return (weeks * weeklyPrice) + (extraNights * dailyRate)
+  }
+  
+  const getSurcharge = () => {
+    if (!selectedStartDate || !selectedEndDate) return 0
+    return getChristmasNewYearSurcharge(selectedStartDate, selectedEndDate)
   }
 
   const handleFormChange = (e) => {
@@ -641,6 +724,7 @@ ${bookingFormData.name}`
           <div className="hidden md:flex space-x-6">
             <a href="#home" className="hover:text-primary transition-colors">Home</a>
             <a href="#property" className="hover:text-primary transition-colors">Property</a>
+            <a href="#pricing" className="hover:text-primary transition-colors">Pricing</a>
             <a href="#gallery" className="hover:text-primary transition-colors">Gallery</a>
             <a href="#location" className="hover:text-primary transition-colors">Location</a>
             <a href="#getting-here" className="hover:text-primary transition-colors">Getting Here</a>
@@ -780,20 +864,194 @@ ${bookingFormData.name}`
             </div>
           </div>
 
-          {/* Pricing */}
-          <Card className="max-w-2xl mx-auto text-center">
-            <CardHeader>
-              <CardTitle className="text-3xl">Weekly Stays</CardTitle>
-              <CardDescription>Minimum 7 nights booking</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-5xl font-bold text-primary mb-4">£1,150</div>
-              <p className="text-muted-foreground mb-6">per week for up to 6 guests</p>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="py-20 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-6">Pricing & Rates</h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Transparent seasonal pricing for your perfect Hebridean escape. All rates include accommodation for up to 6 guests.
+            </p>
+          </div>
+
+          <div className="max-w-5xl mx-auto">
+            {/* Pricing Overview Card */}
+            <Card className="mb-8">
+              <CardHeader className="text-center">
+                <CardTitle className="text-3xl">Weekly Stays</CardTitle>
+                <CardDescription className="text-lg">Minimum 7 nights booking required</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="text-center p-6 bg-primary/5 rounded-lg">
+                    <div className="text-4xl font-bold text-primary mb-2">
+                      {Object.keys(pricingData).length > 0 ? '£950 - £1,350' : '£1,150'}
+                    </div>
+                    <p className="text-muted-foreground">per week (seasonal pricing)</p>
+                  </div>
+                  <div className="text-center p-6 bg-primary/5 rounded-lg">
+                    <div className="text-4xl font-bold text-primary mb-2">Up to 6</div>
+                    <p className="text-muted-foreground">guests included</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Seasonal Pricing Table */}
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle className="text-2xl">Seasonal Rates</CardTitle>
+                <CardDescription>Our pricing varies by season to offer the best value throughout the year</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {Object.keys(pricingData).length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-3 px-4">Month</th>
+                          <th className="text-right py-3 px-4">Weekly Rate</th>
+                          <th className="text-right py-3 px-4">Daily Rate</th>
+                          <th className="text-left py-3 px-4">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((month, index) => {
+                          const pricing = pricingData[month]
+                          if (pricing) {
+                            const dailyRate = Math.round(pricing.weeklyPrice / 7)
+                            return (
+                              <tr key={month} className="border-b hover:bg-muted/50">
+                                <td className="py-3 px-4 font-medium">{month}</td>
+                                <td className="text-right py-3 px-4">£{pricing.weeklyPrice}</td>
+                                <td className="text-right py-3 px-4 text-muted-foreground">£{dailyRate}</td>
+                                <td className="py-3 px-4 text-sm text-muted-foreground">
+                                  {pricing.comment || '-'}
+                                  {pricing.additional > 0 && (
+                                    <span className="text-amber-600 font-medium"> +£{pricing.additional} holiday surcharge</span>
+                                  )}
+                                </td>
+                              </tr>
+                            )
+                          }
+                          return null
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground mb-4">Standard weekly rate: £1,150</p>
+                    <p className="text-sm text-muted-foreground">Seasonal pricing will be displayed once data is loaded</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Special Pricing Notes */}
+            <div className="grid md:grid-cols-2 gap-6 mb-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center text-lg">
+                    <Star className="w-5 h-5 mr-2 text-amber-500" />
+                    Christmas & New Year
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground mb-2">
+                    Bookings that include December 25th or January 1st are subject to a holiday surcharge.
+                  </p>
+                  <p className="text-sm text-amber-700 font-medium">
+                    Surcharge amount varies by season and is shown in the seasonal rates table above.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center text-lg">
+                    <Calendar className="w-5 h-5 mr-2 text-primary" />
+                    Flexible Stays
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground mb-2">
+                    Stays longer than 7 nights are welcome! Extra nights are charged at the daily rate.
+                  </p>
+                  <p className="text-sm text-primary font-medium">
+                    Daily rate = Weekly rate ÷ 7 (rounded to nearest £)
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* What's Included */}
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle className="text-2xl">What's Included</CardTitle>
+                <CardDescription>Everything you need for a comfortable stay</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                    <div>
+                      <p className="font-medium">All Bedding & Linen</p>
+                      <p className="text-sm text-muted-foreground">Fresh linens provided</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                    <div>
+                      <p className="font-medium">Towels</p>
+                      <p className="text-sm text-muted-foreground">Bath & hand towels</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                    <div>
+                      <p className="font-medium">Utilities</p>
+                      <p className="text-sm text-muted-foreground">Electricity, heating, WiFi</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                    <div>
+                      <p className="font-medium">Wood for Burners</p>
+                      <p className="text-sm text-muted-foreground">Initial supply included</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                    <div>
+                      <p className="font-medium">Kitchen Essentials</p>
+                      <p className="text-sm text-muted-foreground">Basic supplies provided</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                    <div>
+                      <p className="font-medium">Parking</p>
+                      <p className="text-sm text-muted-foreground">Ample space on-site</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* CTA */}
+            <div className="text-center">
               <Button size="lg" onClick={() => document.getElementById('booking').scrollIntoView({ behavior: 'smooth' })}>
-                Check Availability
+                Check Availability & Book
               </Button>
-            </CardContent>
-          </Card>
+              <p className="text-sm text-muted-foreground mt-4">
+                Select your dates in the booking calendar to see exact pricing for your stay
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1053,17 +1311,31 @@ ${bookingFormData.name}`
                         <div className="space-y-2">
                           {calculateNights() >= 7 && (
                             <>
+                              <div className="text-xs text-muted-foreground mb-2">
+                                {getMonthName(selectedStartDate.getMonth())} pricing: £{getWeeklyPrice(selectedStartDate)}/week
+                              </div>
                               <div className="flex justify-between">
-                                <span>{Math.floor(calculateNights() / 7)} week(s) × £1,150</span>
-                                <span>£{Math.floor(calculateNights() / 7) * 1150}</span>
+                                <span>{Math.floor(calculateNights() / 7)} week(s) × £{getWeeklyPrice(selectedStartDate)}</span>
+                                <span>£{Math.floor(calculateNights() / 7) * getWeeklyPrice(selectedStartDate)}</span>
                               </div>
                               {calculateNights() % 7 > 0 && (
                                 <div className="flex justify-between">
-                                  <span>{calculateNights() % 7} extra night(s) × £164</span>
-                                  <span>£{(calculateNights() % 7) * 164}</span>
+                                  <span>{calculateNights() % 7} extra night(s) × £{Math.round(getWeeklyPrice(selectedStartDate) / 7)}</span>
+                                  <span>£{(calculateNights() % 7) * Math.round(getWeeklyPrice(selectedStartDate) / 7)}</span>
                                 </div>
                               )}
-                              <div className="border-t pt-2 flex justify-between font-semibold">
+                              {getSurcharge() > 0 && (
+                                <>
+                                  <div className="flex justify-between text-amber-700">
+                                    <span>Christmas/New Year surcharge</span>
+                                    <span>£{getSurcharge()}</span>
+                                  </div>
+                                  <div className="text-xs text-amber-600 italic">
+                                    Applies to weeks containing Dec 25th or Jan 1st
+                                  </div>
+                                </>
+                              )}
+                              <div className="border-t pt-2 flex justify-between font-semibold text-lg">
                                 <span>Total</span>
                                 <span>£{calculateTotal()}</span>
                               </div>
@@ -1159,11 +1431,20 @@ ${bookingFormData.name}`
 
               <form onSubmit={handleFormSubmit} className="space-y-4">
                 {selectedStartDate && selectedEndDate && (
-                  <div className="bg-muted p-4 rounded-lg">
+                  <div className="bg-muted p-4 rounded-lg space-y-2">
                     <p><strong>Check-in:</strong> {formatDate(selectedStartDate)}</p>
                     <p><strong>Check-out:</strong> {formatDate(selectedEndDate)}</p>
                     <p><strong>Duration:</strong> {calculateNights()} nights</p>
-                    <p><strong>Total:</strong> £{calculateTotal()}</p>
+                    <div className="border-t pt-2 mt-2">
+                      <p className="text-sm text-muted-foreground mb-1">
+                        {getMonthName(selectedStartDate.getMonth())} rate: £{getWeeklyPrice(selectedStartDate)}/week
+                      </p>
+                      <p><strong>Base price:</strong> £{calculateBasePrice()}</p>
+                      {getSurcharge() > 0 && (
+                        <p className="text-amber-700"><strong>Holiday surcharge:</strong> £{getSurcharge()}</p>
+                      )}
+                      <p className="text-lg font-bold mt-2"><strong>Total:</strong> £{calculateTotal()}</p>
+                    </div>
                   </div>
                 )}
                 
