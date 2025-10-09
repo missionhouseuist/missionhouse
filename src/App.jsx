@@ -188,16 +188,29 @@ function App() {
     })
   }
 
-  const isDateTurnoverDay = (date) => {
-    // A turnover day is a checkout day that's available for new bookings
+  const isDateCheckoutTurnoverDay = (date) => {
+    // A checkout turnover day is a checkout day that's available for new check-ins
     const isCheckout = isDateCheckoutDay(date)
     const isFullyBooked = isDateBooked(date)
     
     return isCheckout && !isFullyBooked
   }
 
+  const isDateCheckinTurnoverDay = (date) => {
+    // A check-in turnover day is a check-in day that's available for new checkouts
+    const isCheckin = isDateCheckinDay(date)
+    const isFullyBooked = isDateBooked(date)
+    
+    return isCheckin && !isFullyBooked
+  }
+
+  const isDateTurnoverDay = (date) => {
+    // A turnover day is either a checkout or check-in turnover day
+    return isDateCheckoutTurnoverDay(date) || isDateCheckinTurnoverDay(date)
+  }
+
   const isDateConfirmedTurnoverDay = (date) => {
-    // A confirmed turnover day is a checkout day that's also a check-in day (booked for new guests)
+    // A confirmed turnover day is when both checkout and check-in happen on the same day
     const isCheckout = isDateCheckoutDay(date)
     const isCheckin = isDateCheckinDay(date)
     
@@ -443,6 +456,8 @@ function App() {
       const isBooked = isDateBooked(date)
       const isPast = isDateInPast(date)
       const isTurnover = isDateTurnoverDay(date)
+      const isCheckoutTurnover = isDateCheckoutTurnoverDay(date)
+      const isCheckinTurnover = isDateCheckinTurnoverDay(date)
       const isConfirmedTurnover = isDateConfirmedTurnoverDay(date)
       const isCheckout = isDateCheckoutDay(date)
       const isCheckin = isDateCheckinDay(date)
@@ -462,8 +477,10 @@ function App() {
         className += "bg-purple-200 text-purple-900 border-2 border-purple-400 font-semibold cursor-not-allowed"
       } else if (isBooked && !isTurnover) {
         className += "bg-red-100 text-red-800 cursor-not-allowed"
-      } else if (isTurnover) {
+      } else if (isCheckoutTurnover) {
         className += "bg-orange-200 text-orange-900 border-2 border-orange-400 hover:bg-orange-300 font-semibold"
+      } else if (isCheckinTurnover) {
+        className += "bg-green-200 text-green-900 border-2 border-green-400 hover:bg-green-300 font-semibold"
       } else if (isSelected) {
         className += "bg-primary text-primary-foreground"
       } else if (isInRange) {
@@ -479,7 +496,8 @@ function App() {
           onClick={() => handleDateClick(day)}
           title={
             isConfirmedTurnover ? "Confirmed turnover day - checkout & check-in" :
-            isTurnover ? "Turnover day - available for check-in" : ""
+            isCheckoutTurnover ? "Checkout turnover - available for new check-ins" :
+            isCheckinTurnover ? "Check-in turnover - available for new checkouts" : ""
           }
         >
           {dayContent}
@@ -487,9 +505,11 @@ function App() {
             <div className={`absolute top-0 right-0 text-xs font-bold rounded-bl px-1 ${
               isConfirmedTurnover 
                 ? 'text-purple-700 bg-purple-400' 
-                : 'text-orange-700 bg-orange-400'
+                : isCheckoutTurnover
+                ? 'text-orange-700 bg-orange-400'
+                : 'text-green-700 bg-green-400'
             }`}>
-              ↻
+              {isConfirmedTurnover ? '↻' : isCheckoutTurnover ? '↻' : '↺'}
             </div>
           )}
         </div>
@@ -985,7 +1005,13 @@ ${bookingFormData.name}`
                         <div className="w-4 h-4 bg-orange-200 border-2 border-orange-400 rounded relative">
                           <div className="absolute top-0 right-0 text-xs text-orange-700 font-bold">↻</div>
                         </div>
-                        <span>Turnover Day (Available)</span>
+                        <span>Checkout Turnover (Check-in Available)</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 bg-green-200 border-2 border-green-400 rounded relative">
+                          <div className="absolute top-0 right-0 text-xs text-green-700 font-bold">↺</div>
+                        </div>
+                        <span>Check-in Turnover (Checkout Available)</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <div className="w-4 h-4 bg-purple-200 border-2 border-purple-400 rounded relative">
