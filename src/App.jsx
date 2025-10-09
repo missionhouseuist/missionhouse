@@ -379,7 +379,7 @@ function App() {
     { icon: Tv, label: "50\" Smart TV" },
     { icon: Coffee, label: "Espresso Maker" },
     { icon: Car, label: "Ample Parking" },
-    { icon: TreePine, label: "Enclosed Garden" },
+    { icon: Home, label: "Oil Fired Central Heating" },
     { icon: Home, label: "Wood Burners" }
   ]
 
@@ -945,59 +945,8 @@ ${bookingFormData.name}`
               </CardContent>
             </Card>
 
-            {/* Seasonal Pricing Table */}
-            <Card className="mb-8">
-              <CardHeader>
-                <CardTitle className="text-2xl">Seasonal Rates</CardTitle>
-                <CardDescription>Our pricing varies by season to offer the best value throughout the year</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {Object.keys(pricingData).length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-3 px-4">Month</th>
-                          <th className="text-right py-3 px-4">Weekly Rate</th>
-                          <th className="text-right py-3 px-4">Daily Rate</th>
-                          <th className="text-left py-3 px-4">Notes</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((month, index) => {
-                          const pricing = pricingData[month]
-                          if (pricing) {
-                            const dailyRate = Math.round(pricing.weeklyPrice / 7)
-                            return (
-                              <tr key={month} className="border-b hover:bg-muted/50">
-                                <td className="py-3 px-4 font-medium">{month}</td>
-                                <td className="text-right py-3 px-4">£{pricing.weeklyPrice}</td>
-                                <td className="text-right py-3 px-4 text-muted-foreground">£{dailyRate}</td>
-                                <td className="py-3 px-4 text-sm text-muted-foreground">
-                                  {pricing.comment || '-'}
-                                  {pricing.additional > 0 && (
-                                    <span className="text-amber-600 font-medium"> +£{pricing.additional} holiday surcharge</span>
-                                  )}
-                                </td>
-                              </tr>
-                            )
-                          }
-                          return null
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground mb-4">Standard weekly rate: £1,150</p>
-                    <p className="text-sm text-muted-foreground">Seasonal pricing will be displayed once data is loaded</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
             {/* Special Pricing Notes */}
-            <div className="grid md:grid-cols-2 gap-6 mb-8">
+            <div className="grid md:grid-cols-3 gap-6 mb-8">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center text-lg">
@@ -1010,7 +959,7 @@ ${bookingFormData.name}`
                     Bookings that include December 25th or January 1st are subject to a holiday surcharge.
                   </p>
                   <p className="text-sm text-amber-700 font-medium">
-                    Surcharge amount varies by season and is shown in the seasonal rates table above.
+                    Surcharge amount is shown in the pricing table above.
                   </p>
                 </CardContent>
               </Card>
@@ -1028,6 +977,23 @@ ${bookingFormData.name}`
                   </p>
                   <p className="text-sm text-primary font-medium">
                     Daily rate = Weekly rate ÷ 7 (rounded to nearest £)
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center text-lg">
+                    <Star className="w-5 h-5 mr-2 text-green-600" />
+                    Extended Stay Discount
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground mb-2">
+                    Discount available for bookings of 3 weeks or more outside High Season.
+                  </p>
+                  <p className="text-sm text-green-700 font-medium">
+                    Contact us for special rates on longer stays
                   </p>
                 </CardContent>
               </Card>
