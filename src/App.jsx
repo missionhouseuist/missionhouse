@@ -105,44 +105,63 @@ function App() {
       for (let i = 1; i < lines.length; i++) { // Start from 1 to skip header
         const line = lines[i]
         if (line.trim()) {
-          // Parse CSV line (handle quoted fields)
-          const fields = line.split(',').map(field => field.replace(/"/g, '').trim())
+          // Parse CSV line - handle quoted fields properly
+          const fields = []
+          let currentField = ''
+          let inQuotes = false
           
-          if (fields.length >= 6) {
-            // Columns: A-Guest Name, B-Email, C-TelNo, D-Check-in, E-Check-out, F-Status, G-Guests, H-Notes, I-Rate/wk, J-Month, K-Weekly Price, L-Comment, M-Additional
-            const [guestName, email, telNo, checkin, checkout, status, guests, notes, rateWk, month, weeklyPrice, comment, additional] = fields
-            
-            // Parse booking data (columns A-H)
-            if (status && status.toLowerCase() === 'confirmed' && checkin && checkout) {
-              try {
-                const startDate = new Date(checkin)
-                const endDate = new Date(checkout)
-                
-                // Validate dates
-                if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
-                  bookings.push({
-                    start: startDate,
-                    end: endDate,
-                    guest: guestName,
-                    email: email,
-                    phone: telNo,
-                    guestCount: guests,
-                    notes: notes
-                  })
-                }
-              } catch (error) {
-                console.warn('Invalid date format in booking:', checkin, checkout)
-              }
+          for (let j = 0; j < line.length; j++) {
+            const char = line[j]
+            if (char === '"') {
+              inQuotes = !inQuotes
+            } else if (char === ',' && !inQuotes) {
+              fields.push(currentField.trim())
+              currentField = ''
+            } else {
+              currentField += char
             }
+          }
+          fields.push(currentField.trim()) // Push last field
+          
+          // Check if this row has booking data (columns A-H)
+          const [guestName, email, telNo, checkin, checkout, status, guests, notes] = fields
+          
+          if (status && status.toLowerCase() === 'confirmed' && checkin && checkout) {
+            try {
+              const startDate = new Date(checkin)
+              const endDate = new Date(checkout)
+              
+              // Validate dates
+              if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+                bookings.push({
+                  start: startDate,
+                  end: endDate,
+                  guest: guestName,
+                  email: email,
+                  phone: telNo,
+                  guestCount: guests,
+                  notes: notes
+                })
+              }
+            } catch (error) {
+              console.warn('Invalid date format in booking:', checkin, checkout)
+            }
+          }
+          
+          // Check if this row has pricing data (columns K-N which are indices 10-13)
+          // Pricing rows typically don't have guest names but do have month names
+          if (fields.length >= 14) {
+            const month = fields[10]?.trim()
+            const weeklyPrice = fields[11]?.trim()
+            const comment = fields[12]?.trim()
+            const additional = fields[13]?.trim()
             
-            // Parse pricing data (columns J-M which are indices 9-12)
-            if (month && weeklyPrice) {
-              const monthName = month.trim()
+            if (month && weeklyPrice && month.length === 3) {
               const price = parseFloat(weeklyPrice)
               const additionalCharge = parseFloat(additional) || 0
               
-              if (!isNaN(price) && monthName.length === 3) {
-                pricing[monthName] = {
+              if (!isNaN(price)) {
+                pricing[month] = {
                   weeklyPrice: price,
                   comment: comment || '',
                   additional: additionalCharge
@@ -156,6 +175,7 @@ function App() {
       setBookedDates(bookings)
       setPricingData(pricing)
       console.log('Loaded pricing data:', pricing) // Debug log
+      console.log('Number of pricing entries:', Object.keys(pricing).length) // Debug log
       
     } catch (error) {
       console.warn('Failed to load bookings from Google Sheets, using fallback data:', error)
