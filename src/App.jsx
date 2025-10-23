@@ -195,6 +195,15 @@ function App() {
     return () => clearInterval(interval)
   }, [])
 
+  // Auto-scroll hero images every 5 seconds
+  useEffect(() => {
+    const autoScroll = setInterval(() => {
+      setSelectedImage(prev => (prev + 1) % heroImages.length)
+    }, 5000) // 5 seconds
+    
+    return () => clearInterval(autoScroll)
+  }, [])
+
   const isDateBooked = (date) => {
     return bookedDates.some(booking => {
       const bookingStart = new Date(booking.start.getFullYear(), booking.start.getMonth(), booking.start.getDate())
@@ -1567,9 +1576,14 @@ ${bookingFormData.name}`
               <span>North Uist, Outer Hebrides</span>
             </div>
           </div>
-          <p className="text-primary-foreground/80">
-            Licensed holiday let • Weekly bookings only • Spectacular Vallay views
-          </p>
+          <div className="space-y-2">
+            <p className="text-primary-foreground/80">
+              Licensed holiday let • Weekly bookings only • Spectacular Vallay views
+            </p>
+            <p className="text-sm text-primary-foreground/70">
+              Licence Number: ES01445F • Energy Performance Certificate: Band D (68)
+            </p>
+          </div>
         </div>
       </footer>
     </div>
