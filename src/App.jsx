@@ -63,6 +63,14 @@ function App() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState(null)
+  const [contactFormData, setContactFormData] = useState({
+    name: '',
+    email: '',
+    subject: 'General Enquiry',
+    message: ''
+  })
+  const [isSubmittingContact, setIsSubmittingContact] = useState(false)
+  const [contactSubmitStatus, setContactSubmitStatus] = useState(null)
   const [pricingData, setPricingData] = useState({})
   const [bookedDates, setBookedDates] = useState([])
   const [isLoadingBookings, setIsLoadingBookings] = useState(true)
@@ -457,6 +465,12 @@ function App() {
   const handleDateClick = (day) => {
     const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day)
     
+    // Only allow Fridays (day 5) for check-in and check-out
+    const isFriday = clickedDate.getDay() === 5
+    if (!isFriday) {
+      return // Only Fridays are allowed
+    }
+    
     // Allow clicks on: future dates, available dates, and turnover days
     const isPast = isDateInPast(clickedDate)
     const isFullyBooked = isDateBooked(clickedDate)
@@ -545,10 +559,14 @@ function App() {
       const isInRange = selectedStartDate && selectedEndDate && 
                        date > selectedStartDate && date < selectedEndDate
 
+      const isFriday = date.getDay() === 5
       let className = "p-2 text-center cursor-pointer rounded-md transition-colors relative "
       let dayContent = day
       
-      if (isPast) {
+      // Disable non-Friday days
+      if (!isFriday && !isPast && !isBooked) {
+        className += "text-muted-foreground/30 cursor-not-allowed"
+      } else if (isPast) {
         className += "text-muted-foreground/50 cursor-not-allowed"
       } else if (isConfirmedTurnover) {
         className += "bg-purple-200 text-purple-900 border-2 border-purple-400 font-semibold cursor-not-allowed"
@@ -742,6 +760,41 @@ ${bookingFormData.name}`
     setIsSubmitting(false)
   }
 
+  const handleContactSubmit = async (e) => {
+    e.preventDefault()
+    setIsSubmittingContact(true)
+    setContactSubmitStatus(null)
+
+    // Prepare form data for Formspree
+    const formData = new FormData()
+    formData.append('name', contactFormData.name)
+    formData.append('email', contactFormData.email)
+    formData.append('subject', contactFormData.subject)
+    formData.append('message', contactFormData.message)
+    formData.append('_subject', `${contactFormData.subject} - Mission House Contact Form`)
+
+    try {
+      const response = await fetch('https://formspree.io/f/xpwyzgnk', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        setContactSubmitStatus('success')
+        setContactFormData({ name: '', email: '', subject: 'General Enquiry', message: '' })
+      } else {
+        setContactSubmitStatus('error')
+      }
+    } catch (error) {
+      setContactSubmitStatus('error')
+    }
+
+    setIsSubmittingContact(false)
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
@@ -756,6 +809,7 @@ ${bookingFormData.name}`
             <a href="#location" className="hover:text-primary transition-colors">Location</a>
             <a href="#getting-here" className="hover:text-primary transition-colors">Getting Here</a>
             <a href="#booking" className="hover:text-primary transition-colors">Booking</a>
+            <a href="#contact" className="hover:text-primary transition-colors">Contact</a>
           </div>
           <Button onClick={() => document.getElementById('booking').scrollIntoView({ behavior: 'smooth' })}>Check Availability</Button>
         </div>
@@ -1246,7 +1300,12 @@ ${bookingFormData.name}`
               <CardHeader>
                 <CardTitle className="text-2xl text-center">Availability Calendar</CardTitle>
                 <CardDescription className="text-center">
-                  Select your arrival and departure dates (minimum 7 nights)
+                  <div className="mb-2">
+                    <strong>Friday to Friday lettings only</strong> (minimum 7 nights)
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Outside high season (May-August), flexible dates may be possible - please contact us to enquire
+                  </div>
                   {isLoadingBookings && (
                     <div className="text-sm text-muted-foreground mt-2">
                       📅 Loading latest availability...
@@ -1557,6 +1616,102 @@ ${bookingFormData.name}`
           </Card>
         </div>
       )}
+
+      {/* Contact Us Section */}
+      <section id="contact" className="py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-6">Contact Us</h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Have a question or special request? Get in touch with us.
+            </p>
+          </div>
+
+          <div className="max-w-2xl mx-auto">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-2xl text-center">Send us a message</CardTitle>
+                <CardDescription className="text-center">
+                  We'll get back to you as soon as possible
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleContactSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Name *</label>
+                    <input
+                      type="text"
+                      required
+                      className="w-full p-3 border rounded-md"
+                      value={contactFormData.name}
+                      onChange={(e) => setContactFormData({...contactFormData, name: e.target.value})}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Email *</label>
+                    <input
+                      type="email"
+                      required
+                      className="w-full p-3 border rounded-md"
+                      value={contactFormData.email}
+                      onChange={(e) => setContactFormData({...contactFormData, email: e.target.value})}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Subject *</label>
+                    <select
+                      className="w-full p-3 border rounded-md"
+                      value={contactFormData.subject}
+                      onChange={(e) => setContactFormData({...contactFormData, subject: e.target.value})}
+                    >
+                      <option>General Enquiry</option>
+                      <option>Booking Request</option>
+                      <option>Flexible Dates Request</option>
+                      <option>Property Information</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Message *</label>
+                    <textarea
+                      required
+                      rows={6}
+                      className="w-full p-3 border rounded-md"
+                      value={contactFormData.message}
+                      onChange={(e) => setContactFormData({...contactFormData, message: e.target.value})}
+                      placeholder="Please provide details about your enquiry..."
+                    />
+                  </div>
+
+                  {contactSubmitStatus === 'success' && (
+                    <div className="bg-green-50 border border-green-200 text-green-800 p-4 rounded-md">
+                      Thank you! Your message has been sent successfully. We'll get back to you soon.
+                    </div>
+                  )}
+
+                  {contactSubmitStatus === 'error' && (
+                    <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-md">
+                      Sorry, there was an error sending your message. Please try emailing us directly at rental@missionhouse.co.uk
+                    </div>
+                  )}
+
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    size="lg"
+                    disabled={isSubmittingContact}
+                  >
+                    {isSubmittingContact ? 'Sending...' : 'Send Message'}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
 
       {/* Contact Footer */}
       <footer className="bg-primary text-primary-foreground py-12">
