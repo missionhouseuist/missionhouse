@@ -63,6 +63,14 @@ function App() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState(null)
+  const [contactFormData, setContactFormData] = useState({
+    name: '',
+    email: '',
+    subject: 'General Enquiry',
+    message: ''
+  })
+  const [isSubmittingContact, setIsSubmittingContact] = useState(false)
+  const [contactSubmitStatus, setContactSubmitStatus] = useState(null)
   const [pricingData, setPricingData] = useState({})
   const [bookedDates, setBookedDates] = useState([])
   const [isLoadingBookings, setIsLoadingBookings] = useState(true)
@@ -148,13 +156,13 @@ function App() {
             }
           }
           
-          // Check if this row has pricing data (columns J-M which are indices 9-12)
+          // Check if this row has pricing data (columns K-N which are indices 10-13)
           // Pricing rows typically don't have guest names but do have month names
-          if (fields.length >= 13) {
-            const month = fields[9]?.trim()
-            const weeklyPrice = fields[10]?.trim()
-            const comment = fields[11]?.trim()
-            const additional = fields[12]?.trim()
+          if (fields.length >= 14) {
+            const month = fields[10]?.trim()
+            const weeklyPrice = fields[11]?.trim()
+            const comment = fields[12]?.trim()
+            const additional = fields[13]?.trim()
             
             if (month && weeklyPrice && month.length === 3) {
               const price = parseFloat(weeklyPrice)
@@ -193,6 +201,15 @@ function App() {
     const interval = setInterval(fetchBookingsFromSheet, 5 * 60 * 1000)
     
     return () => clearInterval(interval)
+  }, [])
+
+  // Auto-scroll hero images every 5 seconds
+  useEffect(() => {
+    const autoScroll = setInterval(() => {
+      setSelectedImage(prev => (prev + 1) % heroImages.length)
+    }, 5000) // 5 seconds
+    
+    return () => clearInterval(autoScroll)
   }, [])
 
   const isDateBooked = (date) => {
@@ -379,7 +396,7 @@ function App() {
     { icon: Tv, label: "50\" Smart TV" },
     { icon: Coffee, label: "Espresso Maker" },
     { icon: Car, label: "Ample Parking" },
-    { icon: TreePine, label: "Enclosed Garden" },
+    { icon: Home, label: "Oil Fired Central Heating" },
     { icon: Home, label: "Wood Burners" }
   ]
 
@@ -447,6 +464,12 @@ function App() {
 
   const handleDateClick = (day) => {
     const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day)
+    
+    // Only allow Fridays (day 5) for check-in and check-out
+    const isFriday = clickedDate.getDay() === 5
+    if (!isFriday) {
+      return // Only Fridays are allowed
+    }
     
     // Allow clicks on: future dates, available dates, and turnover days
     const isPast = isDateInPast(clickedDate)
@@ -536,10 +559,14 @@ function App() {
       const isInRange = selectedStartDate && selectedEndDate && 
                        date > selectedStartDate && date < selectedEndDate
 
+      const isFriday = date.getDay() === 5
       let className = "p-2 text-center cursor-pointer rounded-md transition-colors relative "
       let dayContent = day
       
-      if (isPast) {
+      // Disable non-Friday days
+      if (!isFriday && !isPast && !isBooked) {
+        className += "text-muted-foreground/30 cursor-not-allowed"
+      } else if (isPast) {
         className += "text-muted-foreground/50 cursor-not-allowed"
       } else if (isConfirmedTurnover) {
         className += "bg-purple-200 text-purple-900 border-2 border-purple-400 font-semibold cursor-not-allowed"
@@ -733,6 +760,41 @@ ${bookingFormData.name}`
     setIsSubmitting(false)
   }
 
+  const handleContactSubmit = async (e) => {
+    e.preventDefault()
+    setIsSubmittingContact(true)
+    setContactSubmitStatus(null)
+
+    // Prepare form data for Formspree
+    const formData = new FormData()
+    formData.append('name', contactFormData.name)
+    formData.append('email', contactFormData.email)
+    formData.append('subject', contactFormData.subject)
+    formData.append('message', contactFormData.message)
+    formData.append('_subject', `${contactFormData.subject} - Mission House Contact Form`)
+
+    try {
+      const response = await fetch('https://formspree.io/f/xpwyzgnk', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        setContactSubmitStatus('success')
+        setContactFormData({ name: '', email: '', subject: 'General Enquiry', message: '' })
+      } else {
+        setContactSubmitStatus('error')
+      }
+    } catch (error) {
+      setContactSubmitStatus('error')
+    }
+
+    setIsSubmittingContact(false)
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
@@ -747,6 +809,7 @@ ${bookingFormData.name}`
             <a href="#location" className="hover:text-primary transition-colors">Location</a>
             <a href="#getting-here" className="hover:text-primary transition-colors">Getting Here</a>
             <a href="#booking" className="hover:text-primary transition-colors">Booking</a>
+            <a href="#contact" className="hover:text-primary transition-colors">Contact</a>
           </div>
           <Button onClick={() => document.getElementById('booking').scrollIntoView({ behavior: 'smooth' })}>Check Availability</Button>
         </div>
@@ -945,59 +1008,8 @@ ${bookingFormData.name}`
               </CardContent>
             </Card>
 
-            {/* Seasonal Pricing Table */}
-            <Card className="mb-8">
-              <CardHeader>
-                <CardTitle className="text-2xl">Seasonal Rates</CardTitle>
-                <CardDescription>Our pricing varies by season to offer the best value throughout the year</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {Object.keys(pricingData).length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-3 px-4">Month</th>
-                          <th className="text-right py-3 px-4">Weekly Rate</th>
-                          <th className="text-right py-3 px-4">Daily Rate</th>
-                          <th className="text-left py-3 px-4">Notes</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((month, index) => {
-                          const pricing = pricingData[month]
-                          if (pricing) {
-                            const dailyRate = Math.round(pricing.weeklyPrice / 7)
-                            return (
-                              <tr key={month} className="border-b hover:bg-muted/50">
-                                <td className="py-3 px-4 font-medium">{month}</td>
-                                <td className="text-right py-3 px-4">£{pricing.weeklyPrice}</td>
-                                <td className="text-right py-3 px-4 text-muted-foreground">£{dailyRate}</td>
-                                <td className="py-3 px-4 text-sm text-muted-foreground">
-                                  {pricing.comment || '-'}
-                                  {pricing.additional > 0 && (
-                                    <span className="text-amber-600 font-medium"> +£{pricing.additional} holiday surcharge</span>
-                                  )}
-                                </td>
-                              </tr>
-                            )
-                          }
-                          return null
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground mb-4">Standard weekly rate: £1,150</p>
-                    <p className="text-sm text-muted-foreground">Seasonal pricing will be displayed once data is loaded</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
             {/* Special Pricing Notes */}
-            <div className="grid md:grid-cols-2 gap-6 mb-8">
+            <div className="grid md:grid-cols-3 gap-6 mb-8">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center text-lg">
@@ -1010,7 +1022,7 @@ ${bookingFormData.name}`
                     Bookings that include December 25th or January 1st are subject to a holiday surcharge.
                   </p>
                   <p className="text-sm text-amber-700 font-medium">
-                    Surcharge amount varies by season and is shown in the seasonal rates table above.
+                    Surcharge amount is shown in the pricing table above.
                   </p>
                 </CardContent>
               </Card>
@@ -1028,6 +1040,23 @@ ${bookingFormData.name}`
                   </p>
                   <p className="text-sm text-primary font-medium">
                     Daily rate = Weekly rate ÷ 7 (rounded to nearest £)
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center text-lg">
+                    <Star className="w-5 h-5 mr-2 text-green-600" />
+                    Extended Stay Discount
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground mb-2">
+                    Discount available for bookings of 3 weeks or more outside High Season.
+                  </p>
+                  <p className="text-sm text-green-700 font-medium">
+                    Contact us for special rates on longer stays
                   </p>
                 </CardContent>
               </Card>
@@ -1271,7 +1300,12 @@ ${bookingFormData.name}`
               <CardHeader>
                 <CardTitle className="text-2xl text-center">Availability Calendar</CardTitle>
                 <CardDescription className="text-center">
-                  Select your arrival and departure dates (minimum 7 nights)
+                  <div className="mb-2">
+                    <strong>Friday to Friday lettings only</strong> (minimum 7 nights)
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Outside high season (May-August), flexible dates may be possible - please contact us to enquire
+                  </div>
                   {isLoadingBookings && (
                     <div className="text-sm text-muted-foreground mt-2">
                       📅 Loading latest availability...
@@ -1583,6 +1617,102 @@ ${bookingFormData.name}`
         </div>
       )}
 
+      {/* Contact Us Section */}
+      <section id="contact" className="py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-6">Contact Us</h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Have a question or special request? Get in touch with us.
+            </p>
+          </div>
+
+          <div className="max-w-2xl mx-auto">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-2xl text-center">Send us a message</CardTitle>
+                <CardDescription className="text-center">
+                  We'll get back to you as soon as possible
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleContactSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Name *</label>
+                    <input
+                      type="text"
+                      required
+                      className="w-full p-3 border rounded-md"
+                      value={contactFormData.name}
+                      onChange={(e) => setContactFormData({...contactFormData, name: e.target.value})}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Email *</label>
+                    <input
+                      type="email"
+                      required
+                      className="w-full p-3 border rounded-md"
+                      value={contactFormData.email}
+                      onChange={(e) => setContactFormData({...contactFormData, email: e.target.value})}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Subject *</label>
+                    <select
+                      className="w-full p-3 border rounded-md"
+                      value={contactFormData.subject}
+                      onChange={(e) => setContactFormData({...contactFormData, subject: e.target.value})}
+                    >
+                      <option>General Enquiry</option>
+                      <option>Booking Request</option>
+                      <option>Flexible Dates Request</option>
+                      <option>Property Information</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Message *</label>
+                    <textarea
+                      required
+                      rows={6}
+                      className="w-full p-3 border rounded-md"
+                      value={contactFormData.message}
+                      onChange={(e) => setContactFormData({...contactFormData, message: e.target.value})}
+                      placeholder="Please provide details about your enquiry..."
+                    />
+                  </div>
+
+                  {contactSubmitStatus === 'success' && (
+                    <div className="bg-green-50 border border-green-200 text-green-800 p-4 rounded-md">
+                      Thank you! Your message has been sent successfully. We'll get back to you soon.
+                    </div>
+                  )}
+
+                  {contactSubmitStatus === 'error' && (
+                    <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-md">
+                      Sorry, there was an error sending your message. Please try emailing us directly at rental@missionhouse.co.uk
+                    </div>
+                  )}
+
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    size="lg"
+                    disabled={isSubmittingContact}
+                  >
+                    {isSubmittingContact ? 'Sending...' : 'Send Message'}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
       {/* Contact Footer */}
       <footer className="bg-primary text-primary-foreground py-12">
         <div className="container mx-auto px-4 text-center">
@@ -1601,9 +1731,14 @@ ${bookingFormData.name}`
               <span>North Uist, Outer Hebrides</span>
             </div>
           </div>
-          <p className="text-primary-foreground/80">
-            Licensed holiday let • Weekly bookings only • Spectacular Vallay views
-          </p>
+          <div className="space-y-2">
+            <p className="text-primary-foreground/80">
+              Licensed holiday let • Weekly bookings only • Spectacular Vallay views
+            </p>
+            <p className="text-sm text-primary-foreground/70">
+              Licence Number: ES01445F • Energy Performance Certificate: Band D (68)
+            </p>
+          </div>
         </div>
       </footer>
     </div>
