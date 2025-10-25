@@ -809,6 +809,7 @@ ${bookingFormData.name}`
             <a href="#location" className="hover:text-primary transition-colors">Location</a>
             <a href="#getting-here" className="hover:text-primary transition-colors">Getting Here</a>
             <a href="#booking" className="hover:text-primary transition-colors">Booking</a>
+            <a href="#faq" className="hover:text-primary transition-colors">FAQ</a>
             <a href="#contact" className="hover:text-primary transition-colors">Contact</a>
           </div>
           <Button onClick={() => document.getElementById('booking').scrollIntoView({ behavior: 'smooth' })}>Check Availability</Button>
@@ -1616,6 +1617,108 @@ ${bookingFormData.name}`
           </Card>
         </div>
       )}
+
+      {/* FAQ Section */}
+      <section id="faq" className="py-20 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-6">Frequently Asked Questions</h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Everything you need to know about booking Mission House
+            </p>
+          </div>
+
+          <div className="max-w-3xl mx-auto space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Where is Mission House located?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Mission House is located in North Uist, part of the Outer Hebrides islands off the west coast of Scotland. The property offers spectacular views of Vallay Island and the Atlantic Ocean. North Uist is accessible via ferry from Skye or by air to Benbecula.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>What are the booking requirements?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  We operate Friday-to-Friday weekly bookings with a minimum stay of 7 nights. Outside high season (May-August), flexible dates may be available on request. Please contact us to enquire about alternative arrangements.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>How many people can stay at Mission House?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Mission House sleeps up to 6 guests across 3 bedrooms: one king bedroom, one twin bedroom, and one single bedroom with an additional pull-out bed.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>What amenities are included?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  The property includes WiFi, oil-fired central heating, a wood burner, Smart TV, fully equipped kitchen, washing machine, dishwasher, private parking, and outdoor seating areas. All bedding and towels are provided.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Are pets allowed?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Unfortunately, pets are not permitted at Mission House to maintain the property for guests with allergies.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>How do I get to North Uist?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  You can reach North Uist by CalMac ferry from Uig on the Isle of Skye (1 hour 45 minutes) or fly to Benbecula Airport (15 minutes from the property). The ferry journey offers stunning views of the Hebrides. We recommend booking ferry tickets in advance, especially during summer.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>What is the pricing structure?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Weekly rates range from £750 to £1,300 depending on the season. High season (July-August) is £1,300 per week. Bookings including Christmas (Dec 25) or New Year (Jan 1) have a £200 surcharge. Extended stays of 3+ weeks outside high season may qualify for discounts.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Is the property licensed?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Yes, Mission House is a fully licensed holiday let (Licence Number: ES01445F) with an Energy Performance Certificate rating of Band D (68).
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
 
       {/* Contact Us Section */}
       <section id="contact" className="py-20">
