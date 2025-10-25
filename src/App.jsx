@@ -1668,7 +1668,7 @@ ${bookingFormData.name}`
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  The property includes WiFi, oil-fired central heating, a wood burner, Smart TV, fully equipped kitchen, washing machine, dishwasher, private parking, and outdoor seating areas. All bedding and towels are provided.
+                  The property includes WiFi, oil-fired central heating, a wood burner, Smart TV, fully equipped kitchen, washing machine, private parking, and outdoor seating areas. All bedding and towels are provided.
                 </p>
               </CardContent>
             </Card>
