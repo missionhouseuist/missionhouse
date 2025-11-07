@@ -74,11 +74,15 @@ function App() {
   const [pricingData, setPricingData] = useState({})
   const [bookedDates, setBookedDates] = useState([])
   const [isLoadingBookings, setIsLoadingBookings] = useState(true)
+  const [localLinks, setLocalLinks] = useState([])
+  const [isLoadingLinks, setIsLoadingLinks] = useState(true)
 
   // Google Sheets configuration
   const SHEET_ID = '1Q5BP29Dp4ONQ6OxWJ3PXfC1odzWkloPFIQ_T11aamBQ'
   const SHEET_NAME = 'Mission House Bookings'
   const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`
+  const LOCAL_LINKS_SHEET_NAME = 'Local Links'
+  const LOCAL_LINKS_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(LOCAL_LINKS_SHEET_NAME)}`
 
   // Fallback booked dates if Google Sheets fails
   const fallbackBookedDates = [
@@ -193,14 +197,77 @@ function App() {
     }
   }
 
+  // Fetch local links from Google Sheets
+  const fetchLocalLinksFromSheet = async () => {
+    try {
+      const response = await fetch(LOCAL_LINKS_URL)
+      const csvText = await response.text()
+      
+      // Parse CSV
+      const rows = csvText.split('\n').filter(row => row.trim())
+      
+      if (rows.length < 2) {
+        setIsLoadingLinks(false)
+        return
+      }
+      
+      const links = []
+      
+      // Skip header row, process data rows
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i]
+        
+        // Simple CSV parsing (handles quoted fields)
+        const fields = []
+        let currentField = ''
+        let inQuotes = false
+        
+        for (let j = 0; j < row.length; j++) {
+          const char = row[j]
+          
+          if (char === '"') {
+            inQuotes = !inQuotes
+          } else if (char === ',' && !inQuotes) {
+            fields.push(currentField.trim())
+            currentField = ''
+          } else {
+            currentField += char
+          }
+        }
+        fields.push(currentField.trim())
+        
+        // Extract fields: Category, Title, URL, Description
+        const category = fields[0] || ''
+        const title = fields[1] || ''
+        const url = fields[2] || ''
+        const description = fields[3] || ''
+        
+        if (category && title && url) {
+          links.push({ category, title, url, description })
+        }
+      }
+      
+      setLocalLinks(links)
+      setIsLoadingLinks(false)
+    } catch (error) {
+      console.error('Error fetching local links:', error)
+      setIsLoadingLinks(false)
+    }
+  }
+
   // Load bookings on component mount
   useEffect(() => {
     fetchBookingsFromSheet()
+    fetchLocalLinksFromSheet()
     
     // Refresh bookings every 5 minutes
     const interval = setInterval(fetchBookingsFromSheet, 5 * 60 * 1000)
+    const linksInterval = setInterval(fetchLocalLinksFromSheet, 5 * 60 * 1000)
     
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      clearInterval(linksInterval)
+    }
   }, [])
 
   // Auto-scroll hero images every 5 seconds
@@ -286,6 +353,19 @@ function App() {
   const getWeeklyPrice = (startDate) => {
     const monthName = getMonthName(startDate.getMonth())
     return pricingData[monthName]?.weeklyPrice || 1150 // fallback to default
+  }
+
+  const getPriceRange = () => {
+    if (Object.keys(pricingData).length === 0) return '£1,150'
+    
+    const prices = Object.values(pricingData).map(data => data.weeklyPrice)
+    const minPrice = Math.min(...prices)
+    const maxPrice = Math.max(...prices)
+    
+    if (minPrice === maxPrice) {
+      return `£${minPrice.toLocaleString()}`
+    }
+    return `£${minPrice.toLocaleString()} - £${maxPrice.toLocaleString()}`
   }
 
   const getChristmasNewYearSurcharge = (startDate, endDate) => {
@@ -809,6 +889,7 @@ ${bookingFormData.name}`
             <a href="#location" className="hover:text-primary transition-colors">Location</a>
             <a href="#getting-here" className="hover:text-primary transition-colors">Getting Here</a>
             <a href="#booking" className="hover:text-primary transition-colors">Booking</a>
+            <a href="#local-info" className="hover:text-primary transition-colors">Local Info</a>
             <a href="#faq" className="hover:text-primary transition-colors">FAQ</a>
             <a href="#contact" className="hover:text-primary transition-colors">Contact</a>
           </div>
@@ -970,7 +1051,7 @@ ${bookingFormData.name}`
                 <div className="grid md:grid-cols-2 gap-6 mb-6">
                   <div className="text-center p-6 bg-primary/5 rounded-lg">
                     <div className="text-4xl font-bold text-primary mb-2">
-                      {Object.keys(pricingData).length > 0 ? '£750 - £1,300' : '£1,150'}
+                      {getPriceRange()}
                     </div>
                     <p className="text-muted-foreground">per week (seasonal pricing)</p>
                   </div>
@@ -1618,6 +1699,67 @@ ${bookingFormData.name}`
         </div>
       )}
 
+      {/* Local Information Section */}
+      <section id="local-info" className="py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-6">Local Information</h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Discover the best of North Uist and the Outer Hebrides
+            </p>
+          </div>
+
+          <div className="max-w-5xl mx-auto">
+            {isLoadingLinks ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Loading local information...</p>
+              </div>
+            ) : localLinks.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">No local links available at the moment.</p>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {/* Group links by category */}
+                {[...new Set(localLinks.map(link => link.category))].map(category => (
+                  <div key={category}>
+                    <h3 className="text-2xl font-bold mb-4 text-primary">{category}</h3>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {localLinks
+                        .filter(link => link.category === category)
+                        .map((link, index) => (
+                          <Card key={index} className="hover:shadow-lg transition-shadow">
+                            <CardHeader>
+                              <CardTitle className="text-lg">
+                                <a 
+                                  href={link.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:underline flex items-center gap-2"
+                                >
+                                  {link.title}
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                  </svg>
+                                </a>
+                              </CardTitle>
+                            </CardHeader>
+                            {link.description && (
+                              <CardContent>
+                                <p className="text-muted-foreground text-sm">{link.description}</p>
+                              </CardContent>
+                            )}
+                          </Card>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
       {/* FAQ Section */}
       <section id="faq" className="py-20 bg-muted/30">
         <div className="container mx-auto px-4">
@@ -1701,7 +1843,7 @@ ${bookingFormData.name}`
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  Weekly rates range from £750 to £1,300 depending on the season. High season (July-August) is £1,300 per week. Bookings including Christmas (Dec 25) or New Year (Jan 1) have a £200 surcharge. Extended stays of 3+ weeks outside high season may qualify for discounts.
+                  Weekly rates range from £750 to £1,350 depending on the season. High season (July-August) is £1,350 per week. Bookings including Christmas (Dec 25) or New Year (Jan 1) have a £200 surcharge. Extended stays of 3+ weeks outside high season may qualify for discounts.
                 </p>
               </CardContent>
             </Card>
