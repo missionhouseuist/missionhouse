@@ -33,6 +33,7 @@ import bedroom1c from './assets/bedroom1c.jpg'
 import bedroom2a from './assets/bedroom2a.jpg'
 import bedroom2b from './assets/bedroom2b.jpg'
 import bedroom2c from './assets/bedroom2c.jpg'
+import bedroom3a from './assets/Bedroom3a.jpg'
 import mainBathroom from './assets/mainbathroom1.jpg'
 import upstairsBathroom from './assets/upstairsbathroom.jpg'
 import interiorDetail from './assets/interiordetail.jpg'
@@ -483,7 +484,7 @@ function App() {
   const bedrooms = [
     { type: "Double Bedroom", description: "Comfortable double bed with stunning Vallay views", image: bedroom1a },
     { type: "Twin Bedroom", description: "Two single beds, perfect for friends or children", image: bedroom2b },
-    { type: "Flexible Bedroom", description: "Upstairs single that converts to double or twin", image: bedroom1b }
+    { type: "Flexible Bedroom", description: "Upstairs single that converts to double or twin", image: bedroom3a }
   ]
 
   const activities = [
