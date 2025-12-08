@@ -443,7 +443,7 @@ function App() {
     { src: bedroom1c, alt: "Double bedroom detail", category: "Bedrooms" },
     { src: bedroom2a, alt: "Twin bedroom", category: "Bedrooms" },
     { src: bedroom2b, alt: "Twin bedroom with window", category: "Bedrooms" },
-    { src: bedroom2c, alt: "Twin bedroom setup", category: "Bedrooms" },
+    { src: bedroom3a, alt: "Flexible bedroom", category: "Bedrooms" },
     
     // Bathrooms
     { src: mainBathroom, alt: "Main bathroom", category: "Bathrooms" },
