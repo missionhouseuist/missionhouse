@@ -1403,9 +1403,8 @@ ${bookingFormData.name}`
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid lg:grid-cols-2 gap-8">
                   {/* Calendar */}
-                  <div>
+                  <div className="mb-8">
                     <div className="flex items-center justify-between mb-4">
                       <Button variant="outline" size="sm" onClick={prevMonth}>
                         <ChevronLeft className="w-4 h-4" />
@@ -1418,10 +1417,10 @@ ${bookingFormData.name}`
                       </Button>
                     </div>
                     {/* Responsive multi-month calendar */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                       {renderCalendar(0)}
-                      <div className="hidden md:block">{renderCalendar(1)}</div>
-                      <div className="hidden lg:block">{renderCalendar(2)}</div>
+                      <div className="hidden sm:block">{renderCalendar(1)}</div>
+                      <div className="hidden xl:block">{renderCalendar(2)}</div>
                     </div>
                     
                     <div className="mt-4 space-y-2 text-sm">
@@ -1458,8 +1457,10 @@ ${bookingFormData.name}`
                     </div>
                   </div>
 
-                  {/* Booking Summary */}
-                  <div className="space-y-6">
+                  {/* Booking Summary - Side by side with calendar on large screens */}
+                  <div className="grid lg:grid-cols-2 gap-8 mt-8">
+                    <div></div>
+                    <div className="space-y-6">
                     <div>
                       <h4 className="font-semibold mb-4">Your Selection</h4>
                       {selectedStartDate && (
@@ -1526,8 +1527,8 @@ ${bookingFormData.name}`
                         Request Booking
                       </Button>
                     )}
+                    </div>
                   </div>
-                </div>
               </CardContent>
             </Card>
           </div>
