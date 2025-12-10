@@ -604,9 +604,10 @@ function App() {
     }
   }
 
-  const renderCalendar = () => {
-    const daysInMonth = getDaysInMonth(currentMonth)
-    const firstDay = getFirstDayOfMonth(currentMonth)
+  const renderCalendar = (monthOffset = 0) => {
+    const displayMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + monthOffset)
+    const daysInMonth = getDaysInMonth(displayMonth)
+    const firstDay = getFirstDayOfMonth(displayMonth)
     const days = []
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -624,7 +625,7 @@ function App() {
 
     // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day)
+      const date = new Date(displayMonth.getFullYear(), displayMonth.getMonth(), day)
       const isBooked = isDateBooked(date)
       const isPast = isDateInPast(date)
       const isTurnover = isDateTurnoverDay(date)
@@ -693,9 +694,14 @@ function App() {
     }
 
     return (
-      <div className="grid grid-cols-7 gap-1">
-        {dayHeaders}
-        {days}
+      <div className="space-y-2">
+        <h4 className="text-center font-semibold text-lg">
+          {displayMonth.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+        </h4>
+        <div className="grid grid-cols-7 gap-1">
+          {dayHeaders}
+          {days}
+        </div>
       </div>
     )
   }
@@ -1405,13 +1411,18 @@ ${bookingFormData.name}`
                         <ChevronLeft className="w-4 h-4" />
                       </Button>
                       <h3 className="text-lg font-semibold">
-                        {currentMonth.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                        Availability Calendar
                       </h3>
                       <Button variant="outline" size="sm" onClick={nextMonth}>
                         <ChevronRight className="w-4 h-4" />
                       </Button>
                     </div>
-                    {renderCalendar()}
+                    {/* Responsive multi-month calendar */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {renderCalendar(0)}
+                      <div className="hidden md:block">{renderCalendar(1)}</div>
+                      <div className="hidden lg:block">{renderCalendar(2)}</div>
+                    </div>
                     
                     <div className="mt-4 space-y-2 text-sm">
                       <div className="flex items-center space-x-2">
