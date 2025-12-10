@@ -161,13 +161,13 @@ function App() {
             }
           }
           
-          // Check if this row has pricing data (columns K-N which are indices 10-13)
+          // Check if this row has pricing data (columns M-P which are indices 12-15)
           // Pricing rows typically don't have guest names but do have month names
-          if (fields.length >= 14) {
-            const month = fields[10]?.trim()
-            const weeklyPrice = fields[11]?.trim()
-            const comment = fields[12]?.trim()
-            const additional = fields[13]?.trim()
+          if (fields.length >= 16) {
+            const month = fields[12]?.trim()
+            const weeklyPrice = fields[13]?.trim()
+            const comment = fields[14]?.trim()
+            const additional = fields[15]?.trim()
             
             if (month && weeklyPrice && month.length === 3) {
               const price = parseFloat(weeklyPrice)
