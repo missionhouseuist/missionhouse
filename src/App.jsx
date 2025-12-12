@@ -33,7 +33,6 @@ import bedroom1c from './assets/bedroom1c.jpg'
 import bedroom2a from './assets/bedroom2a.jpg'
 import bedroom2b from './assets/bedroom2b.jpg'
 import bedroom2c from './assets/bedroom2c.jpg'
-import bedroom3a from './assets/Bedroom3a.jpg'
 import mainBathroom from './assets/mainbathroom1.jpg'
 import upstairsBathroom from './assets/upstairsbathroom.jpg'
 import interiorDetail from './assets/interiordetail.jpg'
@@ -75,15 +74,11 @@ function App() {
   const [pricingData, setPricingData] = useState({})
   const [bookedDates, setBookedDates] = useState([])
   const [isLoadingBookings, setIsLoadingBookings] = useState(true)
-  const [localLinks, setLocalLinks] = useState([])
-  const [isLoadingLinks, setIsLoadingLinks] = useState(true)
 
   // Google Sheets configuration
   const SHEET_ID = '1Q5BP29Dp4ONQ6OxWJ3PXfC1odzWkloPFIQ_T11aamBQ'
   const SHEET_NAME = 'Mission House Bookings'
   const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`
-  const LOCAL_LINKS_SHEET_NAME = 'Local Links'
-  const LOCAL_LINKS_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(LOCAL_LINKS_SHEET_NAME)}`
 
   // Fallback booked dates if Google Sheets fails
   const fallbackBookedDates = [
@@ -161,13 +156,13 @@ function App() {
             }
           }
           
-          // Check if this row has pricing data (columns M-P which are indices 12-15)
+          // Check if this row has pricing data (columns K-N which are indices 10-13)
           // Pricing rows typically don't have guest names but do have month names
-          if (fields.length >= 16) {
-            const month = fields[12]?.trim()
-            const weeklyPrice = fields[13]?.trim()
-            const comment = fields[14]?.trim()
-            const additional = fields[15]?.trim()
+          if (fields.length >= 14) {
+            const month = fields[10]?.trim()
+            const weeklyPrice = fields[11]?.trim()
+            const comment = fields[12]?.trim()
+            const additional = fields[13]?.trim()
             
             if (month && weeklyPrice && month.length === 3) {
               const price = parseFloat(weeklyPrice)
@@ -198,77 +193,14 @@ function App() {
     }
   }
 
-  // Fetch local links from Google Sheets
-  const fetchLocalLinksFromSheet = async () => {
-    try {
-      const response = await fetch(LOCAL_LINKS_URL)
-      const csvText = await response.text()
-      
-      // Parse CSV
-      const rows = csvText.split('\n').filter(row => row.trim())
-      
-      if (rows.length < 2) {
-        setIsLoadingLinks(false)
-        return
-      }
-      
-      const links = []
-      
-      // Skip header row, process data rows
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i]
-        
-        // Simple CSV parsing (handles quoted fields)
-        const fields = []
-        let currentField = ''
-        let inQuotes = false
-        
-        for (let j = 0; j < row.length; j++) {
-          const char = row[j]
-          
-          if (char === '"') {
-            inQuotes = !inQuotes
-          } else if (char === ',' && !inQuotes) {
-            fields.push(currentField.trim())
-            currentField = ''
-          } else {
-            currentField += char
-          }
-        }
-        fields.push(currentField.trim())
-        
-        // Extract fields: Category, Title, URL, Description
-        const category = fields[0] || ''
-        const title = fields[1] || ''
-        const url = fields[2] || ''
-        const description = fields[3] || ''
-        
-        if (category && title && url) {
-          links.push({ category, title, url, description })
-        }
-      }
-      
-      setLocalLinks(links)
-      setIsLoadingLinks(false)
-    } catch (error) {
-      console.error('Error fetching local links:', error)
-      setIsLoadingLinks(false)
-    }
-  }
-
   // Load bookings on component mount
   useEffect(() => {
     fetchBookingsFromSheet()
-    fetchLocalLinksFromSheet()
     
     // Refresh bookings every 5 minutes
     const interval = setInterval(fetchBookingsFromSheet, 5 * 60 * 1000)
-    const linksInterval = setInterval(fetchLocalLinksFromSheet, 5 * 60 * 1000)
     
-    return () => {
-      clearInterval(interval)
-      clearInterval(linksInterval)
-    }
+    return () => clearInterval(interval)
   }, [])
 
   // Auto-scroll hero images every 5 seconds
@@ -356,19 +288,6 @@ function App() {
     return pricingData[monthName]?.weeklyPrice || 1150 // fallback to default
   }
 
-  const getPriceRange = () => {
-    if (Object.keys(pricingData).length === 0) return '£1,150'
-    
-    const prices = Object.values(pricingData).map(data => data.weeklyPrice)
-    const minPrice = Math.min(...prices)
-    const maxPrice = Math.max(...prices)
-    
-    if (minPrice === maxPrice) {
-      return `£${minPrice.toLocaleString()}`
-    }
-    return `£${minPrice.toLocaleString()} - £${maxPrice.toLocaleString()}`
-  }
-
   const getChristmasNewYearSurcharge = (startDate, endDate) => {
     // Check if the booking period contains Dec 25th or Jan 1st
     const christmas = new Date(startDate.getFullYear(), 11, 25) // Dec 25
@@ -443,7 +362,7 @@ function App() {
     { src: bedroom1c, alt: "Double bedroom detail", category: "Bedrooms" },
     { src: bedroom2a, alt: "Twin bedroom", category: "Bedrooms" },
     { src: bedroom2b, alt: "Twin bedroom with window", category: "Bedrooms" },
-    { src: bedroom3a, alt: "Flexible bedroom", category: "Bedrooms" },
+    { src: bedroom2c, alt: "Twin bedroom setup", category: "Bedrooms" },
     
     // Bathrooms
     { src: mainBathroom, alt: "Main bathroom", category: "Bathrooms" },
@@ -484,7 +403,7 @@ function App() {
   const bedrooms = [
     { type: "Double Bedroom", description: "Comfortable double bed with stunning Vallay views", image: bedroom1a },
     { type: "Twin Bedroom", description: "Two single beds, perfect for friends or children", image: bedroom2b },
-    { type: "Flexible Bedroom", description: "Upstairs single that converts to double or twin", image: bedroom3a }
+    { type: "Flexible Bedroom", description: "Upstairs single that converts to double or twin", image: bedroom1b }
   ]
 
   const activities = [
@@ -604,10 +523,9 @@ function App() {
     }
   }
 
-  const renderCalendar = (monthOffset = 0) => {
-    const displayMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + monthOffset)
-    const daysInMonth = getDaysInMonth(displayMonth)
-    const firstDay = getFirstDayOfMonth(displayMonth)
+  const renderCalendar = () => {
+    const daysInMonth = getDaysInMonth(currentMonth)
+    const firstDay = getFirstDayOfMonth(currentMonth)
     const days = []
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -625,7 +543,7 @@ function App() {
 
     // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(displayMonth.getFullYear(), displayMonth.getMonth(), day)
+      const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day)
       const isBooked = isDateBooked(date)
       const isPast = isDateInPast(date)
       const isTurnover = isDateTurnoverDay(date)
@@ -694,14 +612,9 @@ function App() {
     }
 
     return (
-      <div className="space-y-2">
-        <h4 className="text-center font-semibold text-lg">
-          {displayMonth.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-        </h4>
-        <div className="grid grid-cols-7 gap-1">
-          {dayHeaders}
-          {days}
-        </div>
+      <div className="grid grid-cols-7 gap-1">
+        {dayHeaders}
+        {days}
       </div>
     )
   }
@@ -896,8 +809,6 @@ ${bookingFormData.name}`
             <a href="#location" className="hover:text-primary transition-colors">Location</a>
             <a href="#getting-here" className="hover:text-primary transition-colors">Getting Here</a>
             <a href="#booking" className="hover:text-primary transition-colors">Booking</a>
-            <a href="#local-info" className="hover:text-primary transition-colors">Local Info</a>
-            <a href="#faq" className="hover:text-primary transition-colors">FAQ</a>
             <a href="#contact" className="hover:text-primary transition-colors">Contact</a>
           </div>
           <Button onClick={() => document.getElementById('booking').scrollIntoView({ behavior: 'smooth' })}>Check Availability</Button>
@@ -1058,7 +969,7 @@ ${bookingFormData.name}`
                 <div className="grid md:grid-cols-2 gap-6 mb-6">
                   <div className="text-center p-6 bg-primary/5 rounded-lg">
                     <div className="text-4xl font-bold text-primary mb-2">
-                      {getPriceRange()}
+                      {Object.keys(pricingData).length > 0 ? '£750 - £1,300' : '£1,150'}
                     </div>
                     <p className="text-muted-foreground">per week (seasonal pricing)</p>
                   </div>
@@ -1125,10 +1036,10 @@ ${bookingFormData.name}`
                 </CardHeader>
                 <CardContent>
                   <p className="text-muted-foreground mb-2">
-                    Flexible stays available on request, outside high season (May-August).
+                    Stays longer than 7 nights are welcome! Extra nights are charged at the daily rate.
                   </p>
                   <p className="text-sm text-primary font-medium">
-                    Contact us to enquire about flexible dates
+                    May be available outside high season (May-August)
                   </p>
                 </CardContent>
               </Card>
@@ -1403,25 +1314,21 @@ ${bookingFormData.name}`
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="grid lg:grid-cols-2 gap-8">
                   {/* Calendar */}
-                  <div className="mb-8">
+                  <div>
                     <div className="flex items-center justify-between mb-4">
                       <Button variant="outline" size="sm" onClick={prevMonth}>
                         <ChevronLeft className="w-4 h-4" />
                       </Button>
                       <h3 className="text-lg font-semibold">
-                        Availability Calendar
+                        {currentMonth.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
                       </h3>
                       <Button variant="outline" size="sm" onClick={nextMonth}>
                         <ChevronRight className="w-4 h-4" />
                       </Button>
                     </div>
-                    {/* Responsive multi-month calendar */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                      {renderCalendar(0)}
-                      <div className="hidden sm:block">{renderCalendar(1)}</div>
-                      <div className="hidden xl:block">{renderCalendar(2)}</div>
-                    </div>
+                    {renderCalendar()}
                     
                     <div className="mt-4 space-y-2 text-sm">
                       <div className="flex items-center space-x-2">
@@ -1457,10 +1364,8 @@ ${bookingFormData.name}`
                     </div>
                   </div>
 
-                  {/* Booking Summary - Side by side with calendar on large screens */}
-                  <div className="grid lg:grid-cols-2 gap-8 mt-8">
-                    <div></div>
-                    <div className="space-y-6">
+                  {/* Booking Summary */}
+                  <div className="space-y-6">
                     <div>
                       <h4 className="font-semibold mb-4">Your Selection</h4>
                       {selectedStartDate && (
@@ -1527,8 +1432,8 @@ ${bookingFormData.name}`
                         Request Booking
                       </Button>
                     )}
-                    </div>
                   </div>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -1711,169 +1616,6 @@ ${bookingFormData.name}`
           </Card>
         </div>
       )}
-
-      {/* Local Information Section */}
-      <section id="local-info" className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-6">Local Information</h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Discover the best of North Uist and the Outer Hebrides
-            </p>
-          </div>
-
-          <div className="max-w-5xl mx-auto">
-            {isLoadingLinks ? (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">Loading local information...</p>
-              </div>
-            ) : localLinks.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">No local links available at the moment.</p>
-              </div>
-            ) : (
-              <div className="space-y-8">
-                {/* Group links by category */}
-                {[...new Set(localLinks.map(link => link.category))].map(category => (
-                  <div key={category}>
-                    <h3 className="text-2xl font-bold mb-4 text-primary">{category}</h3>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {localLinks
-                        .filter(link => link.category === category)
-                        .map((link, index) => (
-                          <Card key={index} className="hover:shadow-lg transition-shadow">
-                            <CardHeader>
-                              <CardTitle className="text-lg">
-                                <a 
-                                  href={link.url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-primary hover:underline flex items-center gap-2"
-                                >
-                                  {link.title}
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                  </svg>
-                                </a>
-                              </CardTitle>
-                            </CardHeader>
-                            {link.description && (
-                              <CardContent>
-                                <p className="text-muted-foreground text-sm">{link.description}</p>
-                              </CardContent>
-                            )}
-                          </Card>
-                        ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ Section */}
-      <section id="faq" className="py-20 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-6">Frequently Asked Questions</h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Everything you need to know about booking Mission House
-            </p>
-          </div>
-
-          <div className="max-w-3xl mx-auto space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Where is Mission House located?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Mission House is located in North Uist, part of the Outer Hebrides islands off the west coast of Scotland. The property offers spectacular views of Vallay Island and the Atlantic Ocean. North Uist is accessible via ferry from Skye or by air to Benbecula.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>What are the booking requirements?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  We operate Friday-to-Friday weekly bookings with a minimum stay of 7 nights. Outside high season (May-August), flexible dates may be available on request. Please contact us to enquire about alternative arrangements.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>How many people can stay at Mission House?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Mission House sleeps up to 6 guests across 3 bedrooms: one king bedroom, one twin bedroom, and one single bedroom with an additional pull-out bed.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>What amenities are included?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  The property includes WiFi, oil-fired central heating, a wood burner, Smart TV, fully equipped kitchen, washing machine, private parking, and outdoor seating areas. All bedding and towels are provided.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Are pets allowed?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Unfortunately, pets are not permitted at Mission House to maintain the property for guests with allergies.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>How do I get to North Uist?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  You can reach North Uist by CalMac ferry from Uig on the Isle of Skye (1 hour 45 minutes) or fly to Benbecula Airport (15 minutes from the property). The ferry journey offers stunning views of the Hebrides. We recommend booking ferry tickets in advance, especially during summer.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>What is the pricing structure?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Weekly rates range from £750 to £1,350 depending on the season. High season (July-August) is £1,350 per week. Bookings including Christmas (Dec 25) or New Year (Jan 1) have a £200 surcharge. Extended stays of 3+ weeks outside high season may qualify for discounts.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Is the property licensed?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Yes, Mission House is a fully licensed holiday let (Licence Number: ES01445F) with an Energy Performance Certificate rating of Band D (68).
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
 
       {/* Contact Us Section */}
       <section id="contact" className="py-20">
