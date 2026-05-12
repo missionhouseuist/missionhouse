@@ -220,7 +220,7 @@ function App() {
           pricing[shortKey] = {
             weeklyPrice: weeklyRate,
             comment:     fields[4]?.trim() || '',
-            additional:  200  // Xmas/NY supplement is always £200
+            additional:  0  // Xmas/NY supplement is a flat £200 handled in getChristmasNewYearSurcharge
           }
         }
       }
@@ -420,10 +420,9 @@ function App() {
     const containsPrevNewYear = prevNewYear >= startDate && prevNewYear < endDate
     
     if (containsChristmas || containsNewYear || containsPrevNewYear) {
-      const monthName = getMonthName(startDate.getMonth())
-      return pricingData[monthName]?.additional || 0
+      return 200  // Fixed £200 Xmas/NY supplement
     }
-    
+
     return 0
   }
 
