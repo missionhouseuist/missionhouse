@@ -73,6 +73,7 @@ function App() {
   const [isSubmittingContact, setIsSubmittingContact] = useState(false)
   const [contactSubmitStatus, setContactSubmitStatus] = useState(null)
   const [pricingData, setPricingData] = useState({})
+  const [xmasNYSurcharge, setXmasNYSurcharge] = useState(200) // fallback if sheet unreadable
   const [bookedDates, setBookedDates] = useState([])
   const [isLoadingBookings, setIsLoadingBookings] = useState(true)
   const [localLinks, setLocalLinks] = useState([])
@@ -220,7 +221,16 @@ function App() {
           pricing[shortKey] = {
             weeklyPrice: weeklyRate,
             comment:     fields[4]?.trim() || '',
-            additional:  0  // Xmas/NY supplement is a flat £200 handled in getChristmasNewYearSurcharge
+            additional:  0
+          }
+        }
+
+        // Config rows: Col A = "Config", Col B = setting name, Col C = value
+        if (fields[0]?.trim() === 'Config') {
+          const configKey = fields[1]?.trim()
+          const configVal = parseFloat(fields[2]?.replace(/[^0-9.]/g, ''))
+          if (configKey === 'Xmas/NY Surcharge' && !isNaN(configVal)) {
+            setXmasNYSurcharge(configVal)
           }
         }
       }
@@ -420,7 +430,7 @@ function App() {
     const containsPrevNewYear = prevNewYear >= startDate && prevNewYear < endDate
     
     if (containsChristmas || containsNewYear || containsPrevNewYear) {
-      return 200  // Fixed £200 Xmas/NY supplement
+      return xmasNYSurcharge
     }
 
     return 0
@@ -1116,7 +1126,7 @@ ${bookingFormData.name}`
                               <div className="text-sm font-medium text-muted-foreground mb-1">{month}</div>
                               <div className="text-lg font-bold">£{pricing.weeklyPrice}</div>
                               {(month === 'Dec' || month === 'Jan') && (
-                                <div className="text-xs text-amber-600 mt-1">+£200 (Xmas/NY)</div>
+                                <div className="text-xs text-amber-600 mt-1">+£{xmasNYSurcharge} (Xmas/NY)</div>
                               )}
                             </div>
                           )
