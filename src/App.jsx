@@ -73,6 +73,7 @@ function App() {
   const [isSubmittingContact, setIsSubmittingContact] = useState(false)
   const [contactSubmitStatus, setContactSubmitStatus] = useState(null)
   const [pricingData, setPricingData] = useState({})
+  const [rawRates, setRawRates] = useState({})  // keyed by 'YYYY-Mon', e.g. '2026-Jan'
   const [xmasNYSurcharge, setXmasNYSurcharge] = useState(200) // fallback if sheet unreadable
   const [bookedDates, setBookedDates] = useState([])
   const [isLoadingBookings, setIsLoadingBookings] = useState(true)
@@ -212,13 +213,14 @@ function App() {
         fields.push(currentField.trim())
 
         // Col A=Year, Col B=Month (full), Col C=Weekly Rate
+        const yearVal    = parseInt(fields[0]?.trim())
         const monthFull  = fields[1]?.trim()
         const weeklyRate = parseFloat(fields[2]?.replace(/[^0-9.]/g, ''))
         const shortKey   = MONTH_SHORT[monthFull]
 
-        if (shortKey && !isNaN(weeklyRate) && weeklyRate > 0) {
-          // Later rows (2027) overwrite earlier (2026) — fine for a rolling calendar
-          pricing[shortKey] = {
+        if (shortKey && !isNaN(weeklyRate) && weeklyRate > 0 && !isNaN(yearVal)) {
+          // Store by 'YYYY-Mon' key so we can pick the right year later
+          pricing[yearVal + '-' + shortKey] = {
             weeklyPrice: weeklyRate,
             comment:     fields[4]?.trim() || '',
             additional:  0
@@ -235,8 +237,22 @@ function App() {
         }
       }
 
-      if (Object.keys(pricing).length > 0) {
-        setPricingData(pricing)
+      // Save the full raw rates map for year-aware lookups in getWeeklyPrice
+      setRawRates(pricing)
+
+      // Build pricingData for the next 12 months from today, using the correct year's rate
+      const MON_KEYS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+      const today = new Date()
+      const display = {}
+      for (let i = 0; i < 12; i++) {
+        const d = new Date(today.getFullYear(), today.getMonth() + i, 1)
+        const yr = d.getFullYear()
+        const mon = MON_KEYS[d.getMonth()]
+        const entry = pricing[yr + '-' + mon]
+        if (entry) display[mon] = entry
+      }
+      if (Object.keys(display).length > 0) {
+        setPricingData(display)
       }
     } catch (error) {
       console.warn('Failed to load pricing from Google Sheets:', error)
@@ -401,7 +417,9 @@ function App() {
 
   const getWeeklyPrice = (startDate) => {
     const monthName = getMonthName(startDate.getMonth())
-    return pricingData[monthName]?.weeklyPrice || 1150 // fallback to default
+    const yearKey = startDate.getFullYear() + '-' + monthName
+    // Year-aware lookup first, then fall back to display pricing, then hardcoded default
+    return rawRates[yearKey]?.weeklyPrice || pricingData[monthName]?.weeklyPrice || 1150
   }
 
   const getPriceRange = () => {
