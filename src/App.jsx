@@ -1115,8 +1115,8 @@ ${bookingFormData.name}`
                             <div key={month} className="text-center p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
                               <div className="text-sm font-medium text-muted-foreground mb-1">{month}</div>
                               <div className="text-lg font-bold">£{pricing.weeklyPrice}</div>
-                              {pricing.additional > 0 && (
-                                <div className="text-xs text-amber-600 mt-1">+£{pricing.additional}</div>
+                              {(month === 'Dec' || month === 'Jan') && (
+                                <div className="text-xs text-amber-600 mt-1">+£200 (Xmas/NY)</div>
                               )}
                             </div>
                           )
