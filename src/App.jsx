@@ -73,15 +73,19 @@ function App() {
   const [isSubmittingContact, setIsSubmittingContact] = useState(false)
   const [contactSubmitStatus, setContactSubmitStatus] = useState(null)
   const [pricingData, setPricingData] = useState({})
+  const [rawRates, setRawRates] = useState({})  // keyed by 'YYYY-Mon', e.g. '2026-Jan'
+  const [xmasNYSurcharge, setXmasNYSurcharge] = useState(200) // fallback if sheet unreadable
   const [bookedDates, setBookedDates] = useState([])
   const [isLoadingBookings, setIsLoadingBookings] = useState(true)
   const [localLinks, setLocalLinks] = useState([])
   const [isLoadingLinks, setIsLoadingLinks] = useState(true)
 
-  // Google Sheets configuration
-  const SHEET_ID = '1Q5BP29Dp4ONQ6OxWJ3PXfC1odzWkloPFIQ_T11aamBQ'
-  const SHEET_NAME = 'Mission House Bookings'
+  // Google Sheets configuration — booking automation spreadsheet
+  const SHEET_ID = '1BnaAKdWIT5iPwwhm-6Bs4TbhFnHTGlHTX6MMLWHfKdU'
+  const SHEET_NAME = 'Bookings'
   const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`
+  const PRICING_SHEET_NAME = 'Pricing'
+  const PRICING_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(PRICING_SHEET_NAME)}`
   const LOCAL_LINKS_SHEET_NAME = 'Local Links'
   const LOCAL_LINKS_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(LOCAL_LINKS_SHEET_NAME)}`
 
@@ -136,65 +140,122 @@ function App() {
           }
           fields.push(currentField.trim()) // Push last field
           
-          // Check if this row has booking data (columns A-H)
-          const [guestName, email, telNo, checkin, checkout, status, guests, notes] = fields
-          
-          if (status && status.toLowerCase() === 'confirmed' && checkin && checkout) {
+          // Booking automation column structure:
+          // A(0)=EnquiryDate, B(1)=Source, C(2)=GuestName, D(3)=Email, E(4)=Phone,
+          // F(5)=CheckIn, G(6)=CheckOut, H(7)=Nights, I(8)=Guests, J(9)=Adults,
+          // K(10)=Children, L(11)=Status
+          const checkin  = fields[5]
+          const checkout = fields[6]
+          const status   = fields[11]
+          const guests   = fields[8]
+
+          // Block calendar for all confirmed/active statuses
+          const BLOCKED_STATUSES = ['Deposit Paid', 'Balance Due', 'Fully Paid', 'In Residence', 'Blocked']
+          if (status && BLOCKED_STATUSES.includes(status) && checkin && checkout) {
             try {
               const startDate = new Date(checkin)
               const endDate = new Date(checkout)
-              
+
               // Validate dates
               if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
                 bookings.push({
                   start: startDate,
                   end: endDate,
-                  guest: guestName,
-                  email: email,
-                  phone: telNo,
                   guestCount: guests,
-                  notes: notes
                 })
               }
             } catch (error) {
               console.warn('Invalid date format in booking:', checkin, checkout)
             }
           }
-          
-          // Check if this row has pricing data (columns M-P which are indices 12-15)
-          // Pricing rows typically don't have guest names but do have month names
-          if (fields.length >= 16) {
-            const month = fields[12]?.trim()
-            const weeklyPrice = fields[13]?.trim()
-            const comment = fields[14]?.trim()
-            const additional = fields[15]?.trim()
-            
-            if (month && weeklyPrice && month.length === 3) {
-              const price = parseFloat(weeklyPrice)
-              const additionalCharge = parseFloat(additional) || 0
-              
-              if (!isNaN(price)) {
-                pricing[month] = {
-                  weeklyPrice: price,
-                  comment: comment || '',
-                  additional: additionalCharge
-                }
-              }
-            }
-          }
         }
       }
       
       setBookedDates(bookings)
-      setPricingData(pricing)
-      console.log('Loaded pricing data:', pricing) // Debug log
-      console.log('Number of pricing entries:', Object.keys(pricing).length) // Debug log
       
     } catch (error) {
       console.warn('Failed to load bookings from Google Sheets, using fallback data:', error)
       setBookedDates(fallbackBookedDates)
     } finally {
       setIsLoadingBookings(false)
+    }
+  }
+
+  // Fetch pricing from the Pricing tab (separate from Bookings)
+  // Pricing tab: A=Year, B=Month (full name), C=Weekly Rate
+  const MONTH_SHORT = {
+    'January':'Jan','February':'Feb','March':'Mar','April':'Apr',
+    'May':'May','June':'Jun','July':'Jul','August':'Aug',
+    'September':'Sep','October':'Oct','November':'Nov','December':'Dec'
+  }
+
+  const fetchPricingFromSheet = async () => {
+    try {
+      const response = await fetch(PRICING_URL)
+      const csvText = await response.text()
+      const lines = csvText.split('\n')
+      const pricing = {}
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i]
+        if (!line.trim()) continue
+
+        // Parse CSV line
+        const fields = []
+        let currentField = ''
+        let inQuotes = false
+        for (let j = 0; j < line.length; j++) {
+          const char = line[j]
+          if (char === '"') { inQuotes = !inQuotes }
+          else if (char === ',' && !inQuotes) { fields.push(currentField.trim()); currentField = '' }
+          else { currentField += char }
+        }
+        fields.push(currentField.trim())
+
+        // Col A=Year, Col B=Month (full), Col C=Weekly Rate
+        const yearVal    = parseInt(fields[0]?.trim())
+        const monthFull  = fields[1]?.trim()
+        const weeklyRate = parseFloat(fields[2]?.replace(/[^0-9.]/g, ''))
+        const shortKey   = MONTH_SHORT[monthFull]
+
+        if (shortKey && !isNaN(weeklyRate) && weeklyRate > 0 && !isNaN(yearVal)) {
+          // Store by 'YYYY-Mon' key so we can pick the right year later
+          pricing[yearVal + '-' + shortKey] = {
+            weeklyPrice: weeklyRate,
+            comment:     fields[4]?.trim() || '',
+            additional:  0
+          }
+        }
+
+        // Config rows: Col A = "Config", Col B = setting name, Col C = value
+        if (fields[0]?.trim() === 'Config') {
+          const configKey = fields[1]?.trim()
+          const configVal = parseFloat(fields[2]?.replace(/[^0-9.]/g, ''))
+          if (configKey === 'Xmas/NY surcharge' && !isNaN(configVal)) {
+            setXmasNYSurcharge(configVal)
+          }
+        }
+      }
+
+      // Save the full raw rates map for year-aware lookups in getWeeklyPrice
+      setRawRates(pricing)
+
+      // Build pricingData for the next 12 months from today, using the correct year's rate
+      const MON_KEYS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+      const today = new Date()
+      const display = {}
+      for (let i = 0; i < 12; i++) {
+        const d = new Date(today.getFullYear(), today.getMonth() + i, 1)
+        const yr = d.getFullYear()
+        const mon = MON_KEYS[d.getMonth()]
+        const entry = pricing[yr + '-' + mon]
+        if (entry) display[mon] = entry
+      }
+      if (Object.keys(display).length > 0) {
+        setPricingData(display)
+      }
+    } catch (error) {
+      console.warn('Failed to load pricing from Google Sheets:', error)
     }
   }
 
@@ -259,14 +320,17 @@ function App() {
   // Load bookings on component mount
   useEffect(() => {
     fetchBookingsFromSheet()
+    fetchPricingFromSheet()
     fetchLocalLinksFromSheet()
-    
-    // Refresh bookings every 5 minutes
-    const interval = setInterval(fetchBookingsFromSheet, 5 * 60 * 1000)
+
+    // Refresh bookings and pricing every 5 minutes
+    const interval      = setInterval(fetchBookingsFromSheet, 5 * 60 * 1000)
+    const pricingInterval = setInterval(fetchPricingFromSheet, 5 * 60 * 1000)
     const linksInterval = setInterval(fetchLocalLinksFromSheet, 5 * 60 * 1000)
-    
+
     return () => {
       clearInterval(interval)
+      clearInterval(pricingInterval)
       clearInterval(linksInterval)
     }
   }, [])
@@ -353,7 +417,9 @@ function App() {
 
   const getWeeklyPrice = (startDate) => {
     const monthName = getMonthName(startDate.getMonth())
-    return pricingData[monthName]?.weeklyPrice || 1150 // fallback to default
+    const yearKey = startDate.getFullYear() + '-' + monthName
+    // Year-aware lookup first, then fall back to display pricing, then hardcoded default
+    return rawRates[yearKey]?.weeklyPrice || pricingData[monthName]?.weeklyPrice || 1150
   }
 
   const getPriceRange = () => {
@@ -382,10 +448,9 @@ function App() {
     const containsPrevNewYear = prevNewYear >= startDate && prevNewYear < endDate
     
     if (containsChristmas || containsNewYear || containsPrevNewYear) {
-      const monthName = getMonthName(startDate.getMonth())
-      return pricingData[monthName]?.additional || 0
+      return xmasNYSurcharge
     }
-    
+
     return 0
   }
 
@@ -1078,8 +1143,8 @@ ${bookingFormData.name}`
                             <div key={month} className="text-center p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
                               <div className="text-sm font-medium text-muted-foreground mb-1">{month}</div>
                               <div className="text-lg font-bold">£{pricing.weeklyPrice}</div>
-                              {pricing.additional > 0 && (
-                                <div className="text-xs text-amber-600 mt-1">+£{pricing.additional}</div>
+                              {(month === 'Dec' || month === 'Jan') && (
+                                <div className="text-xs text-amber-600 mt-1">+£{xmasNYSurcharge} (Xmas/NY)</div>
                               )}
                             </div>
                           )
