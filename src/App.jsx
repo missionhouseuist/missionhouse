@@ -436,22 +436,18 @@ function App() {
   }
 
   const getChristmasNewYearSurcharge = (startDate, endDate) => {
-    // Check if the booking period contains Dec 25th or Jan 1st
-    const christmas = new Date(startDate.getFullYear(), 11, 25) // Dec 25
-    const newYear = new Date(startDate.getFullYear() + 1, 0, 1) // Jan 1 next year
-    
-    // Also check previous year's Jan 1st in case booking spans years
-    const prevNewYear = new Date(startDate.getFullYear(), 0, 1) // Jan 1 this year
-    
-    const containsChristmas = christmas >= startDate && christmas < endDate
-    const containsNewYear = newYear >= startDate && newYear < endDate
-    const containsPrevNewYear = prevNewYear >= startDate && prevNewYear < endDate
-    
-    if (containsChristmas || containsNewYear || containsPrevNewYear) {
-      return xmasNYSurcharge
-    }
+        // Count how many holiday dates (Dec 25, Jan 1) fall within the booking period.
+        // A stay spanning both Christmas AND New Year attracts two surcharges.
+        const christmas   = new Date(startDate.getFullYear(), 11, 25)   // Dec 25 this year
+        const newYear     = new Date(startDate.getFullYear() + 1, 0, 1) // Jan 1 next year
+        const prevNewYear = new Date(startDate.getFullYear(), 0, 1)     // Jan 1 this year (Jan-start bookings)
 
-    return 0
+        let count = 0
+        if (christmas   >= startDate && christmas   < endDate) count++
+        if (newYear     >= startDate && newYear     < endDate) count++
+        if (prevNewYear >= startDate && prevNewYear < endDate) count++
+
+        return xmasNYSurcharge * count
   }
 
   const heroImages = [
