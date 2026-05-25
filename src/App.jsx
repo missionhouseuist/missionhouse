@@ -231,7 +231,7 @@ function App() {
         if (fields[0]?.trim() === 'Config') {
           const configKey = fields[1]?.trim()
           const configVal = parseFloat(fields[2]?.replace(/[^0-9.]/g, ''))
-          if (configKey === 'Xmas/NY Surcharge' && !isNaN(configVal)) {
+          if (configKey === 'Xmas/NY surcharge' && !isNaN(configVal)) {
             setXmasNYSurcharge(configVal)
           }
         }
