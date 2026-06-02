@@ -59,7 +59,8 @@ function App() {
     name: '',
     email: '',
     phone: '',
-    guests: '1-2 guests',
+    guests: '',
+    bed3: '',
     message: ''
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -845,6 +846,7 @@ Name: ${bookingFormData.name}
 Email: ${bookingFormData.email}
 Phone: ${bookingFormData.phone}
 Number of Guests: ${bookingFormData.guests}
+Bedroom 3 config: ${bookingFormData.bed3}
 
 SPECIAL REQUESTS:
 ${bookingFormData.message || 'None'}
@@ -868,6 +870,7 @@ ${bookingFormData.name}`
     formData.append('email', bookingFormData.email)
     formData.append('phone', bookingFormData.phone)
     formData.append('guests', bookingFormData.guests)
+    formData.append('bed3', bookingFormData.bed3)
     formData.append('message', bookingFormData.message)
     formData.append('checkin', formatDate(selectedStartDate))
     formData.append('checkout', formatDate(selectedEndDate))
@@ -887,7 +890,7 @@ ${bookingFormData.name}`
 
       if (response.ok) {
         setSubmitStatus('success')
-        setBookingFormData({ name: '', email: '', phone: '', guests: '1-2 guests', message: '' })
+        setBookingFormData({ name: '', email: '', phone: '', guests: '', bed3: '', message: '' })
         // Close the form after 2 seconds and show success message
         setTimeout(() => {
           setShowBookingForm(false)
@@ -1706,28 +1709,47 @@ ${bookingFormData.name}`
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium mb-2">Phone</label>
-                  <input 
-                    type="tel" 
+                  <label className="block text-sm font-medium mb-2">Phone *</label>
+                  <input
+                    type="tel"
                     name="phone"
                     value={bookingFormData.phone}
                     onChange={handleFormChange}
-                    className="w-full p-2 border rounded-md" 
+                    className="w-full p-2 border rounded-md"
+                    required
                   />
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-medium mb-2">Number of Guests</label>
-                  <select 
+                  <label className="block text-sm font-medium mb-2">Number of Guests *</label>
+                  <input
+                    type="number"
                     name="guests"
                     value={bookingFormData.guests}
                     onChange={handleFormChange}
+                    min="1"
+                    max="6"
+                    placeholder="Enter number of guests (max 6)"
                     className="w-full p-2 border rounded-md"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Bedroom 3 configuration *</label>
+                  <select
+                    name="bed3"
+                    value={bookingFormData.bed3}
+                    onChange={handleFormChange}
+                    className="w-full p-2 border rounded-md"
+                    required
                   >
-                    <option>1-2 guests</option>
-                    <option>3-4 guests</option>
-                    <option>5-6 guests</option>
+                    <option value="">Please select...</option>
+                    <option value="Single">Single bed</option>
+                    <option value="Twin">Twin (two single beds)</option>
+                    <option value="Double">Double bed</option>
                   </select>
+                  <p className="text-xs text-muted-foreground mt-1">Bedroom 3 can be configured as a single, twin, or double — please let us know your preference.</p>
                 </div>
                 
                 <div>
