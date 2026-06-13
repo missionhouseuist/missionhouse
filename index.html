@@ -69,12 +69,11 @@
         "@type": "QuantitativeValue",
         "maxValue": "6"
       },
+      "numberOfBathroomsTotal": 2,
       "containsPlace": [
-        {"@type": "Room", "name": "Bedroom 1", "numberOfBeds": 1},
-        {"@type": "Room", "name": "Bedroom 2", "numberOfBeds": 1},
-        {"@type": "Room", "name": "Bedroom 3", "numberOfBeds": 1},
-        {"@type": "Room", "name": "Bathroom 1"},
-        {"@type": "Room", "name": "Bathroom 2"}
+        {"@type": "Room", "name": "Bedroom 1", "numberOfBeds": 1, "occupancy": {"@type": "QuantitativeValue", "maxValue": 2}},
+        {"@type": "Room", "name": "Bedroom 2", "numberOfBeds": 1, "occupancy": {"@type": "QuantitativeValue", "maxValue": 2}},
+        {"@type": "Room", "name": "Bedroom 3", "numberOfBeds": 1, "occupancy": {"@type": "QuantitativeValue", "maxValue": 2}}
       ],
       "amenityFeature": [
         {"@type": "LocationFeatureSpecification", "name": "WiFi", "value": true},
@@ -88,8 +87,3 @@
     }
     </script>
   </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
-</html>
