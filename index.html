@@ -36,13 +36,28 @@
     {
       "@context": "https://schema.org",
       "@type": "VacationRental",
+      "additionalType": "https://schema.org/VacationRental",
       "name": "Mission House",
+      "identifier": "missionhouse-north-uist",
       "description": "Stunning 3-bedroom holiday let in North Uist with spectacular views of Vallay Island and the Atlantic Ocean. Sleeps up to 6 guests.",
-      "image": "https://www.missionhouse.co.uk/og-image.jpg",
+      "image": [
+        "https://www.missionhouse.co.uk/og-image.jpg",
+        "https://www.missionhouse.co.uk/images/exterior-front.jpg",
+        "https://www.missionhouse.co.uk/images/exterior-1.jpg",
+        "https://www.missionhouse.co.uk/images/exterior-2.jpg",
+        "https://www.missionhouse.co.uk/images/vallay-view.jpg",
+        "https://www.missionhouse.co.uk/images/lounge-1.jpg",
+        "https://www.missionhouse.co.uk/images/kitchen-1.jpg",
+        "https://www.missionhouse.co.uk/images/bedroom-1.jpg",
+        "https://www.missionhouse.co.uk/images/bedroom-2.jpg",
+        "https://www.missionhouse.co.uk/images/bedroom-3.jpg"
+      ],
       "address": {
         "@type": "PostalAddress",
+        "streetAddress": "Malaclate, Sollas",
         "addressLocality": "North Uist",
         "addressRegion": "Outer Hebrides",
+        "postalCode": "HS6 5BX",
         "addressCountry": "GB"
       },
       "geo": {
@@ -55,15 +70,22 @@
         "@type": "QuantitativeValue",
         "maxValue": "6"
       },
-      "amenityFeature": [
-        {"@type": "LocationFeatureSpecification", "name": "WiFi"},
-        {"@type": "LocationFeatureSpecification", "name": "Parking"},
-        {"@type": "LocationFeatureSpecification", "name": "Wood Burner"},
-        {"@type": "LocationFeatureSpecification", "name": "Central Heating"},
-        {"@type": "LocationFeatureSpecification", "name": "Smart TV"}
+      "containsPlace": [
+        {"@type": "BedRoom", "name": "Bedroom 1", "numberOfBeds": 1},
+        {"@type": "BedRoom", "name": "Bedroom 2", "numberOfBeds": 1},
+        {"@type": "BedRoom", "name": "Bedroom 3", "numberOfBeds": 1},
+        {"@type": "BathroomRoom", "name": "Bathroom 1"},
+        {"@type": "BathroomRoom", "name": "Bathroom 2"}
       ],
-      "petsAllowed": "False",
-      "smokingAllowed": "False"
+      "amenityFeature": [
+        {"@type": "LocationFeatureSpecification", "name": "WiFi", "value": true},
+        {"@type": "LocationFeatureSpecification", "name": "Parking", "value": true},
+        {"@type": "LocationFeatureSpecification", "name": "Wood Burner", "value": true},
+        {"@type": "LocationFeatureSpecification", "name": "Central Heating", "value": true},
+        {"@type": "LocationFeatureSpecification", "name": "Smart TV", "value": true}
+      ],
+      "petsAllowed": false,
+      "smokingAllowed": false
     }
     </script>
   </head>
