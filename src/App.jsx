@@ -243,8 +243,8 @@ function App() {
     })
   }
 
-  const handleDateClick = (day) => {
-    const clickedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day)
+  const handleDateClick = (day, month) => {
+    const clickedDate = new Date(month.getFullYear(), month.getMonth(), day)
     
     if (isDateInPast(clickedDate) || isDateBooked(clickedDate)) {
       return
@@ -272,36 +272,36 @@ function App() {
     }
   }
 
-  const renderCalendar = () => {
-    const daysInMonth = getDaysInMonth(currentMonth)
-    const firstDay = getFirstDayOfMonth(currentMonth)
+  const renderCalendar = (month) => {
+    const daysInMonth = getDaysInMonth(month)
+    const firstDay = getFirstDayOfMonth(month)
     const days = []
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
     // Add day headers
     const dayHeaders = dayNames.map(day => (
-      <div key={day} className="text-center text-sm font-medium text-muted-foreground p-2">
+      <div key={day} className="text-center text-xs font-medium text-muted-foreground p-1">
         {day}
       </div>
     ))
 
     // Add empty cells for days before the first day of the month
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="p-2"></div>)
+      days.push(<div key={`empty-${i}`} className="p-1"></div>)
     }
 
     // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day)
+      const date = new Date(month.getFullYear(), month.getMonth(), day)
       const isBooked = isDateBooked(date)
       const isPast = isDateInPast(date)
       const isSelected = (selectedStartDate && date.getTime() === selectedStartDate.getTime()) ||
                         (selectedEndDate && date.getTime() === selectedEndDate.getTime())
-      const isInRange = selectedStartDate && selectedEndDate && 
+      const isInRange = selectedStartDate && selectedEndDate &&
                        date > selectedStartDate && date < selectedEndDate
 
-      let className = "p-2 text-center cursor-pointer rounded-md transition-colors "
-      
+      let className = "p-1 text-center text-sm cursor-pointer rounded-md transition-colors "
+
       if (isPast) {
         className += "text-muted-foreground/50 cursor-not-allowed"
       } else if (isBooked) {
@@ -318,7 +318,7 @@ function App() {
         <div
           key={day}
           className={className}
-          onClick={() => handleDateClick(day)}
+          onClick={() => handleDateClick(day, month)}
         >
           {day}
         </div>
@@ -331,6 +331,10 @@ function App() {
         {days}
       </div>
     )
+  }
+
+  const getMonthOffset = (offset) => {
+    return new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1)
   }
 
   const nextMonth = () => {
@@ -502,17 +506,36 @@ function App() {
           </div>
 
           {/* Pricing */}
-          <Card className="max-w-2xl mx-auto text-center">
-            <CardHeader>
+          <Card className="max-w-3xl mx-auto">
+            <CardHeader className="text-center">
               <CardTitle className="text-3xl">Weekly Stays</CardTitle>
-              <CardDescription>Minimum 7 nights booking</CardDescription>
+              <CardDescription>Minimum 7 nights · up to 6 guests · all linen included</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-5xl font-bold text-primary mb-4">£1,000</div>
-              <p className="text-muted-foreground mb-6">per week for up to 6 guests</p>
-              <Button size="lg" onClick={() => setShowBookingForm(true)}>
-                Check Availability
-              </Button>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-6">
+                {[
+                  { month: 'Jan', rate: 780 }, { month: 'Feb', rate: 780 },
+                  { month: 'Mar', rate: 925 }, { month: 'Apr', rate: 1200 },
+                  { month: 'May', rate: 1350 }, { month: 'Jun', rate: 1350 },
+                  { month: 'Jul', rate: 1400 }, { month: 'Aug', rate: 1400 },
+                  { month: 'Sep', rate: 1300 }, { month: 'Oct', rate: 1000 },
+                  { month: 'Nov', rate: 780 }, { month: 'Dec', rate: 780 },
+                ].map(({ month, rate }) => (
+                  <div key={month} className="text-center p-3 bg-muted/50 rounded-lg">
+                    <div className="text-xs font-medium text-muted-foreground mb-1">{month}</div>
+                    <div className="text-lg font-bold">£{rate.toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">/ week</div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-center text-muted-foreground mb-6">
+                Rates shown for 2027. Christmas &amp; New Year bookings (weeks containing 25 Dec or 1 Jan) include a £200 supplement.
+              </p>
+              <div className="text-center">
+                <Button size="lg" onClick={() => document.getElementById('booking').scrollIntoView({ behavior: 'smooth' })}>
+                  Check Availability
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -693,23 +716,36 @@ function App() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid lg:grid-cols-2 gap-8">
-                  {/* Calendar */}
+                <div className="space-y-6">
+                  {/* 3-Month Calendar */}
                   <div>
                     <div className="flex items-center justify-between mb-4">
                       <Button variant="outline" size="sm" onClick={prevMonth}>
                         <ChevronLeft className="w-4 h-4" />
                       </Button>
-                      <h3 className="text-lg font-semibold">
-                        {currentMonth.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-                      </h3>
+                      <span className="text-sm text-muted-foreground">
+                        {getMonthOffset(0).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                        {' – '}
+                        {getMonthOffset(2).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                      </span>
                       <Button variant="outline" size="sm" onClick={nextMonth}>
                         <ChevronRight className="w-4 h-4" />
                       </Button>
                     </div>
-                    {renderCalendar()}
-                    
-                    <div className="mt-4 space-y-2 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {[0, 1, 2].map(offset => {
+                        const m = getMonthOffset(offset)
+                        return (
+                          <div key={offset}>
+                            <h3 className="text-sm font-semibold text-center mb-2">
+                              {m.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                            </h3>
+                            {renderCalendar(m)}
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-4 text-sm">
                       <div className="flex items-center space-x-2">
                         <div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div>
                         <span>Booked</span>
@@ -724,8 +760,9 @@ function App() {
                       </div>
                     </div>
                   </div>
-
                   {/* Booking Summary */}
+                  <div className="border-t pt-6">
+                  <div className="grid lg:grid-cols-2 gap-8">
                   <div className="space-y-6">
                     <div>
                       <h4 className="font-semibold mb-4">Your Selection</h4>
@@ -780,6 +817,8 @@ function App() {
                       </Button>
                     )}
                   </div>
+                </div>
+                </div>
                 </div>
               </CardContent>
             </Card>
