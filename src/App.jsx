@@ -703,6 +703,9 @@ ${bookingFormData.name}`
     formData.append('checkout', formatDate(selectedEndDate))
     formData.append('nights', calculateNights())
     formData.append('total', `£${calculateTotal()}`)
+    // Lets the Apps Script tell the two forms apart. Without it, a general
+    // question gets auto-answered with a request for check-in dates.
+    formData.append('formType', 'booking')
     formData.append('_subject', `Booking Request for Mission House - ${formatDate(selectedStartDate)} to ${formatDate(selectedEndDate)}`)
 
     try {
@@ -747,6 +750,7 @@ ${bookingFormData.name}`
     formData.append('email', contactFormData.email)
     formData.append('subject', contactFormData.subject)
     formData.append('message', contactFormData.message)
+    formData.append('formType', 'contact')
     formData.append('_subject', `${contactFormData.subject} - Mission House Contact Form`)
 
     try {
