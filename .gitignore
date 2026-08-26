@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Secrets — never commit credentials to this repository.
+# It is public: anything committed here is world-readable and stays in
+# git history even after deletion.
+.env
+.env.*
+*.pem
+*.key
+secrets.json
+**/appsscript-config.js
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
