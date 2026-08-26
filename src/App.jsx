@@ -72,7 +72,6 @@ function App() {
   })
   const [isSubmittingContact, setIsSubmittingContact] = useState(false)
   const [contactSubmitStatus, setContactSubmitStatus] = useState(null)
-  const [pricingData, setPricingData] = useState({})
   const [bookedDates, setBookedDates] = useState([])
   const [isLoadingBookings, setIsLoadingBookings] = useState(true)
   const [localLinks, setLocalLinks] = useState([])
@@ -116,24 +115,13 @@ function App() {
       const supplement = Number(data.config && data.config.xmasSupplement) || 200
       setXmasSupplement(supplement)
 
-      // Year-aware index for quoting, plus a month-keyed view for the rates panel.
+      // Year-aware index — 'YYYY-Month' -> weekly rate. The rates panel derives
+      // its own rolling window from this at render time.
       const index = {}
-      const display = {}
-      const thisYear = new Date().getFullYear()
       ;(data.pricing || []).forEach(p => {
         index[`${p.year}-${p.month}`] = p.weeklyRate
-        if (p.year === thisYear) {
-          const short = SHORT_MONTHS[MONTH_NAMES.indexOf(p.month)]
-          if (short) {
-            display[short] = {
-              weeklyPrice: p.weeklyRate,
-              additional: (p.month === 'December' || p.month === 'January') ? supplement : 0,
-            }
-          }
-        }
       })
       setRateIndex(index)
-      setPricingData(display)
 
       setLocalLinks(data.localLinks || [])
       setLoadError(false)
@@ -242,15 +230,33 @@ function App() {
   // year AND month. Returns null when no rate is published for that month —
   // callers must not invent one.
   const getWeeklyPrice = (date) => {
-    const key = `${date.getFullYear()}-${MONTH_NAMES[date.getMonth()]}`
-    if (rateIndex[key]) return rateIndex[key]
-    return pricingData[getMonthName(date.getMonth())]?.weeklyPrice || null
+    return rateIndex[`${date.getFullYear()}-${MONTH_NAMES[date.getMonth()]}`] || null
   }
 
+  // The next 12 bookable months, starting from the current one, each carrying
+  // its own year's rate. Without this the panel would show January at last
+  // January's price — a month that has already gone.
+  const upcomingRates = (() => {
+    const out = []
+    const today = new Date()
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(today.getFullYear(), today.getMonth() + i, 1)
+      const rate = rateIndex[`${d.getFullYear()}-${MONTH_NAMES[d.getMonth()]}`]
+      if (!rate) continue
+      out.push({
+        key: `${d.getFullYear()}-${d.getMonth()}`,
+        label: `${SHORT_MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`,
+        rate: rate,
+        surcharge: (d.getMonth() === 11 || d.getMonth() === 0) ? xmasSupplement : 0,
+      })
+    }
+    return out
+  })()
+
   const getPriceRange = () => {
-    if (Object.keys(pricingData).length === 0) return '£1,150'
-    
-    const prices = Object.values(pricingData).map(data => data.weeklyPrice)
+    if (upcomingRates.length === 0) return '—'
+
+    const prices = upcomingRates.map(r => r.rate)
     const minPrice = Math.min(...prices)
     const maxPrice = Math.max(...prices)
     
@@ -953,25 +959,20 @@ ${bookingFormData.name}`
                 </div>
 
                 {/* Mini Pricing Table */}
-                {Object.keys(pricingData).length > 0 && (
+                {upcomingRates.length > 0 && (
                   <div className="border-t pt-6">
                     <h4 className="font-semibold text-lg mb-4 text-center">Quick Pricing Reference</h4>
+                    <p className="text-sm text-center text-muted-foreground mb-4">The next twelve months</p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                      {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((month) => {
-                        const pricing = pricingData[month]
-                        if (pricing) {
-                          return (
-                            <div key={month} className="text-center p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
-                              <div className="text-sm font-medium text-muted-foreground mb-1">{month}</div>
-                              <div className="text-lg font-bold">£{pricing.weeklyPrice}</div>
-                              {pricing.additional > 0 && (
-                                <div className="text-xs text-amber-600 mt-1">+£{pricing.additional}</div>
-                              )}
-                            </div>
-                          )
-                        }
-                        return null
-                      })}
+                      {upcomingRates.map((entry) => (
+                        <div key={entry.key} className="text-center p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
+                          <div className="text-sm font-medium text-muted-foreground mb-1">{entry.label}</div>
+                          <div className="text-lg font-bold">£{entry.rate.toLocaleString()}</div>
+                          {entry.surcharge > 0 && (
+                            <div className="text-xs text-amber-600 mt-1">+£{entry.surcharge}</div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                     <p className="text-sm text-center text-muted-foreground mt-4">
                       <strong>Christmas & New Year Surcharge:</strong> Weeks containing December 25th or January 1st include an additional charge (shown above in amber).
