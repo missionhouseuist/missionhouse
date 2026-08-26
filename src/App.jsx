@@ -32,7 +32,7 @@ import bedroom1b from './assets/bedroom1b.jpg'
 import bedroom1c from './assets/bedroom1c.jpg'
 import bedroom2a from './assets/bedroom2a.jpg'
 import bedroom2b from './assets/bedroom2b.jpg'
-import bedroom2c from './assets/bedroom2c.jpg'
+import bedroom3a from './assets/Bedroom3a.jpg'
 import mainBathroom from './assets/mainbathroom1.jpg'
 import upstairsBathroom from './assets/upstairsbathroom.jpg'
 import interiorDetail from './assets/interiordetail.jpg'
@@ -54,39 +54,227 @@ function App() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedStartDate, setSelectedStartDate] = useState(null)
   const [selectedEndDate, setSelectedEndDate] = useState(null)
-
-  // Live availability from Google Apps Script Web App endpoint.
-  // After deploying doGet() as a Web App in Apps Script, paste the URL below.
-  const BOOKINGS_URL = 'https://script.google.com/macros/s/AKfycbyiCOV7nWbu8WVxgtycGiJUE6XG_AjJLWTB7PpTP0LkDeyOuVwe0kdzUtGCsYJqCnuY/exec'
-
+  const [bookingFormData, setBookingFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    guests: '',
+    bed3: '',
+    message: ''
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitStatus, setSubmitStatus] = useState(null)
+  const [contactFormData, setContactFormData] = useState({
+    name: '',
+    email: '',
+    subject: 'General Enquiry',
+    message: ''
+  })
+  const [isSubmittingContact, setIsSubmittingContact] = useState(false)
+  const [contactSubmitStatus, setContactSubmitStatus] = useState(null)
+  const [pricingData, setPricingData] = useState({})
   const [bookedDates, setBookedDates] = useState([])
+  const [isLoadingBookings, setIsLoadingBookings] = useState(true)
+  const [localLinks, setLocalLinks] = useState([])
+  const [isLoadingLinks, setIsLoadingLinks] = useState(true)
+  const [rateIndex, setRateIndex] = useState({})        // 'YYYY-Month' -> weekly rate
+  const [xmasSupplement, setXmasSupplement] = useState(200)
+  const [loadError, setLoadError] = useState(false)
+
+  // Live data from the Apps Script Web App — bookings, pricing and local links
+  // in one call. See doGet() in booking_automation.gs.
+  const DATA_URL = 'https://script.google.com/macros/s/AKfycbyiCOV7nWbu8WVxgtycGiJUE6XG_AjJLWTB7PpTP0LkDeyOuVwe0kdzUtGCsYJqCnuY/exec?data=all'
+
+  const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+  // Parses 'YYYY-MM-DD' as LOCAL midnight.
+  // new Date('2026-07-03') is read as UTC, which during British Summer Time
+  // lands on 2 July locally and shifts every booking a day later on the
+  // calendar — arrival days appear free, checkout days appear blocked.
+  const parseSheetDate = (value) => {
+    const parts = String(value).split('-').map(Number)
+    if (parts.length !== 3 || parts.some(isNaN)) return null
+    return new Date(parts[0], parts[1] - 1, parts[2])
+  }
+
+  const fetchData = async () => {
+    try {
+      setIsLoadingBookings(true)
+      const response = await fetch(DATA_URL)
+      if (!response.ok) throw new Error('HTTP ' + response.status)
+
+      const data = await response.json()
+      if (data.error) throw new Error(data.error)
+
+      setBookedDates(
+        (data.bookings || [])
+          .map(b => ({ start: parseSheetDate(b.start), end: parseSheetDate(b.end) }))
+          .filter(b => b.start && b.end)
+      )
+
+      const supplement = Number(data.config && data.config.xmasSupplement) || 200
+      setXmasSupplement(supplement)
+
+      // Year-aware index for quoting, plus a month-keyed view for the rates panel.
+      const index = {}
+      const display = {}
+      const thisYear = new Date().getFullYear()
+      ;(data.pricing || []).forEach(p => {
+        index[`${p.year}-${p.month}`] = p.weeklyRate
+        if (p.year === thisYear) {
+          const short = SHORT_MONTHS[MONTH_NAMES.indexOf(p.month)]
+          if (short) {
+            display[short] = {
+              weeklyPrice: p.weeklyRate,
+              additional: (p.month === 'December' || p.month === 'January') ? supplement : 0,
+            }
+          }
+        }
+      })
+      setRateIndex(index)
+      setPricingData(display)
+
+      setLocalLinks(data.localLinks || [])
+      setLoadError(false)
+    } catch (error) {
+      // Deliberately does NOT fall back to an empty booking list. Showing every
+      // date as available invites double bookings; the calendar reads loadError
+      // and tells the guest availability is temporarily unavailable instead.
+      console.error('Could not load live availability:', error)
+      setLoadError(true)
+    } finally {
+      setIsLoadingBookings(false)
+      setIsLoadingLinks(false)
+    }
+  }
 
   useEffect(() => {
-    if (!BOOKINGS_URL || BOOKINGS_URL.startsWith('PASTE_')) return
-    fetch(BOOKINGS_URL)
-      .then(r => r.json())
-      .then(data => {
-        setBookedDates(
-          data
-            .filter(b => b.start && b.end)
-            .map(b => ({ start: new Date(b.start), end: new Date(b.end) }))
-        )
-      })
-      .catch(() => {
-        // Silently fail — calendar shows all dates as available rather than blocking enquiries
-      })
+    fetchData()
+    const interval = setInterval(fetchData, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Auto-scroll hero images every 5 seconds
+  useEffect(() => {
+    const autoScroll = setInterval(() => {
+      setSelectedImage(prev => (prev + 1) % heroImages.length)
+    }, 5000) // 5 seconds
+    
+    return () => clearInterval(autoScroll)
   }, [])
 
   const isDateBooked = (date) => {
-    return bookedDates.some(booking => 
-      date >= booking.start && date <= booking.end
-    )
+    return bookedDates.some(booking => {
+      const bookingStart = new Date(booking.start.getFullYear(), booking.start.getMonth(), booking.start.getDate())
+      const bookingEnd = new Date(booking.end.getFullYear(), booking.end.getMonth(), booking.end.getDate())
+      const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+      
+      // A date is booked if it's between start (exclusive) and end (exclusive)
+      // This means both checkout days AND check-in days are available for turnover bookings
+      return checkDate > bookingStart && checkDate < bookingEnd
+    })
+  }
+
+  const isDateCheckoutDay = (date) => {
+    return bookedDates.some(booking => {
+      const checkoutDate = new Date(booking.end)
+      return date.getFullYear() === checkoutDate.getFullYear() &&
+             date.getMonth() === checkoutDate.getMonth() &&
+             date.getDate() === checkoutDate.getDate()
+    })
+  }
+
+  const isDateCheckinDay = (date) => {
+    return bookedDates.some(booking => {
+      const checkinDate = new Date(booking.start)
+      return date.getFullYear() === checkinDate.getFullYear() &&
+             date.getMonth() === checkinDate.getMonth() &&
+             date.getDate() === checkinDate.getDate()
+    })
+  }
+
+  const isDateCheckoutTurnoverDay = (date) => {
+    // A checkout turnover day is a checkout day that's available for new check-ins
+    const isCheckout = isDateCheckoutDay(date)
+    const isFullyBooked = isDateBooked(date)
+    
+    return isCheckout && !isFullyBooked
+  }
+
+  const isDateCheckinTurnoverDay = (date) => {
+    // A check-in turnover day is a check-in day that's available for new checkouts
+    const isCheckin = isDateCheckinDay(date)
+    const isFullyBooked = isDateBooked(date)
+    
+    return isCheckin && !isFullyBooked
+  }
+
+  const isDateTurnoverDay = (date) => {
+    // A turnover day is either a checkout or check-in turnover day
+    return isDateCheckoutTurnoverDay(date) || isDateCheckinTurnoverDay(date)
+  }
+
+  const isDateConfirmedTurnoverDay = (date) => {
+    // A confirmed turnover day is when both checkout and check-in happen on the same day
+    const isCheckout = isDateCheckoutDay(date)
+    const isCheckin = isDateCheckinDay(date)
+    
+    return isCheckout && isCheckin
   }
 
   const isDateInPast = (date) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     return date < today
+  }
+
+  const getMonthName = (monthIndex) => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    return months[monthIndex]
+  }
+
+  const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+                      'July', 'August', 'September', 'October', 'November', 'December']
+
+  // Rates differ by year (Jul 2026 is £1,350; Jul 2027 is £1,400), so look up
+  // year AND month. Returns null when no rate is published for that month —
+  // callers must not invent one.
+  const getWeeklyPrice = (date) => {
+    const key = `${date.getFullYear()}-${MONTH_NAMES[date.getMonth()]}`
+    if (rateIndex[key]) return rateIndex[key]
+    return pricingData[getMonthName(date.getMonth())]?.weeklyPrice || null
+  }
+
+  const getPriceRange = () => {
+    if (Object.keys(pricingData).length === 0) return '£1,150'
+    
+    const prices = Object.values(pricingData).map(data => data.weeklyPrice)
+    const minPrice = Math.min(...prices)
+    const maxPrice = Math.max(...prices)
+    
+    if (minPrice === maxPrice) {
+      return `£${minPrice.toLocaleString()}`
+    }
+    return `£${minPrice.toLocaleString()} - £${maxPrice.toLocaleString()}`
+  }
+
+  const getChristmasNewYearSurcharge = (startDate, endDate) => {
+    // Count how many holiday dates (Dec 25, Jan 1) fall within the booking period.
+    // A stay spanning both Christmas AND New Year attracts two surcharges.
+    const christmas   = new Date(startDate.getFullYear(), 11, 25)     // Dec 25 this year
+    const newYear     = new Date(startDate.getFullYear() + 1, 0, 1)   // Jan 1 next year
+    const prevNewYear = new Date(startDate.getFullYear(), 0, 1)        // Jan 1 this year (for Jan-start bookings)
+
+    let count = 0
+    if (christmas   >= startDate && christmas   < endDate) count++
+    if (newYear     >= startDate && newYear     < endDate) count++
+    if (prevNewYear >= startDate && prevNewYear < endDate) count++
+
+    if (count === 0) return 0
+
+    return xmasSupplement * count
   }
 
   const heroImages = [
@@ -143,7 +331,7 @@ function App() {
     { src: bedroom1c, alt: "Double bedroom detail", category: "Bedrooms" },
     { src: bedroom2a, alt: "Twin bedroom", category: "Bedrooms" },
     { src: bedroom2b, alt: "Twin bedroom with window", category: "Bedrooms" },
-    { src: bedroom2c, alt: "Twin bedroom setup", category: "Bedrooms" },
+    { src: bedroom3a, alt: "Flexible bedroom", category: "Bedrooms" },
     
     // Bathrooms
     { src: mainBathroom, alt: "Main bathroom", category: "Bathrooms" },
@@ -177,14 +365,14 @@ function App() {
     { icon: Tv, label: "50\" Smart TV" },
     { icon: Coffee, label: "Espresso Maker" },
     { icon: Car, label: "Ample Parking" },
-    { icon: TreePine, label: "Enclosed Garden" },
+    { icon: Home, label: "Oil Fired Central Heating" },
     { icon: Home, label: "Wood Burners" }
   ]
 
   const bedrooms = [
     { type: "Double Bedroom", description: "Comfortable double bed with stunning Vallay views", image: bedroom1a },
     { type: "Twin Bedroom", description: "Two single beds, perfect for friends or children", image: bedroom2b },
-    { type: "Flexible Bedroom", description: "Upstairs single that converts to double or twin", image: bedroom1b }
+    { type: "Flexible Bedroom", description: "Upstairs single that converts to double or twin", image: bedroom3a }
   ]
 
   const activities = [
@@ -243,10 +431,19 @@ function App() {
     })
   }
 
-  const handleDateClick = (day, month) => {
-    const clickedDate = new Date(month.getFullYear(), month.getMonth(), day)
+  const handleDateClick = (clickedDate) => {
+    // Only allow Fridays (day 5) for check-in and check-out
+    const isFriday = clickedDate.getDay() === 5
+    if (!isFriday) {
+      return // Only Fridays are allowed
+    }
     
-    if (isDateInPast(clickedDate) || isDateBooked(clickedDate)) {
+    // Allow clicks on: future dates, available dates, and turnover days
+    const isPast = isDateInPast(clickedDate)
+    const isFullyBooked = isDateBooked(clickedDate)
+    const isTurnover = isDateTurnoverDay(clickedDate)
+    
+    if (isPast || (isFullyBooked && !isTurnover)) {
       return
     }
 
@@ -257,11 +454,31 @@ function App() {
       setSelectedStartDate(clickedDate)
       setSelectedEndDate(null)
     } else {
-      // Check if there are any booked dates between start and end
-      const hasBookedDatesBetween = bookedDates.some(booking => 
-        (booking.start > selectedStartDate && booking.start < clickedDate) ||
-        (booking.end > selectedStartDate && booking.end < clickedDate)
-      )
+      // Check if there are any booked dates between start and end (excluding turnover days)
+      const hasBookedDatesBetween = bookedDates.some(booking => {
+        const bookingStart = new Date(booking.start)
+        const bookingEnd = new Date(booking.end)
+        
+        // Normalize dates to midnight for comparison
+        const startCheck = new Date(selectedStartDate.getFullYear(), selectedStartDate.getMonth(), selectedStartDate.getDate())
+        const endCheck = new Date(clickedDate.getFullYear(), clickedDate.getMonth(), clickedDate.getDate())
+        const bookingStartCheck = new Date(bookingStart.getFullYear(), bookingStart.getMonth(), bookingStart.getDate())
+        const bookingEndCheck = new Date(bookingEnd.getFullYear(), bookingEnd.getMonth(), bookingEnd.getDate())
+        
+        // Check if booking overlaps with our selected range
+        // Allow if our start date is a checkout day (turnover)
+        const isStartDateTurnover = isDateTurnoverDay(selectedStartDate)
+        
+        // If we're starting on a turnover day, allow the booking
+        if (isStartDateTurnover && startCheck.getTime() === bookingEndCheck.getTime()) {
+          return false // No conflict - we're starting on a checkout day
+        }
+        
+        // Check for actual conflicts (booking periods that overlap)
+        return (bookingStartCheck > startCheck && bookingStartCheck < endCheck) ||
+               (bookingEndCheck > startCheck && bookingEndCheck < endCheck) ||
+               (bookingStartCheck <= startCheck && bookingEndCheck >= endCheck)
+      })
       
       if (hasBookedDatesBetween) {
         setSelectedStartDate(clickedDate)
@@ -272,40 +489,58 @@ function App() {
     }
   }
 
-  const renderCalendar = (month) => {
-    const daysInMonth = getDaysInMonth(month)
-    const firstDay = getFirstDayOfMonth(month)
+  const renderCalendar = (monthOffset = 0) => {
+    const displayMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + monthOffset)
+    const daysInMonth = getDaysInMonth(displayMonth)
+    const firstDay = getFirstDayOfMonth(displayMonth)
     const days = []
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
     // Add day headers
     const dayHeaders = dayNames.map(day => (
-      <div key={day} className="text-center text-xs font-medium text-muted-foreground p-1">
+      <div key={day} className="text-center text-sm font-medium text-muted-foreground p-2">
         {day}
       </div>
     ))
 
     // Add empty cells for days before the first day of the month
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="p-1"></div>)
+      days.push(<div key={`empty-${i}`} className="p-2"></div>)
     }
 
     // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(month.getFullYear(), month.getMonth(), day)
+      const date = new Date(displayMonth.getFullYear(), displayMonth.getMonth(), day)
       const isBooked = isDateBooked(date)
       const isPast = isDateInPast(date)
+      const isTurnover = isDateTurnoverDay(date)
+      const isCheckoutTurnover = isDateCheckoutTurnoverDay(date)
+      const isCheckinTurnover = isDateCheckinTurnoverDay(date)
+      const isConfirmedTurnover = isDateConfirmedTurnoverDay(date)
+      
+
       const isSelected = (selectedStartDate && date.getTime() === selectedStartDate.getTime()) ||
                         (selectedEndDate && date.getTime() === selectedEndDate.getTime())
-      const isInRange = selectedStartDate && selectedEndDate &&
+      const isInRange = selectedStartDate && selectedEndDate && 
                        date > selectedStartDate && date < selectedEndDate
 
-      let className = "p-1 text-center text-sm cursor-pointer rounded-md transition-colors "
-
-      if (isPast) {
+      const isFriday = date.getDay() === 5
+      let className = "p-2 text-center cursor-pointer rounded-md transition-colors relative "
+      let dayContent = day
+      
+      // Disable non-Friday days
+      if (!isFriday && !isPast && !isBooked) {
+        className += "text-muted-foreground/30 cursor-not-allowed"
+      } else if (isPast) {
         className += "text-muted-foreground/50 cursor-not-allowed"
-      } else if (isBooked) {
+      } else if (isConfirmedTurnover) {
+        className += "bg-purple-200 text-purple-900 border-2 border-purple-400 font-semibold cursor-not-allowed"
+      } else if (isBooked && !isTurnover) {
         className += "bg-red-100 text-red-800 cursor-not-allowed"
+      } else if (isCheckoutTurnover) {
+        className += "bg-orange-200 text-orange-900 border-2 border-orange-400 hover:bg-orange-300 font-semibold"
+      } else if (isCheckinTurnover) {
+        className += "bg-green-200 text-green-900 border-2 border-green-400 hover:bg-green-300 font-semibold"
       } else if (isSelected) {
         className += "bg-primary text-primary-foreground"
       } else if (isInRange) {
@@ -318,23 +553,40 @@ function App() {
         <div
           key={day}
           className={className}
-          onClick={() => handleDateClick(day, month)}
+          onClick={() => handleDateClick(date)}
+          title={
+            isConfirmedTurnover ? "Confirmed turnover day - checkout & check-in" :
+            isCheckoutTurnover ? "Checkout turnover - available for new check-ins" :
+            isCheckinTurnover ? "Check-in turnover - available for new checkouts" : ""
+          }
         >
-          {day}
+          {dayContent}
+          {(isTurnover || isConfirmedTurnover) && (
+            <div className={`absolute top-0 right-0 text-xs font-bold rounded-bl px-1 ${
+              isConfirmedTurnover 
+                ? 'text-purple-700 bg-purple-400' 
+                : isCheckoutTurnover
+                ? 'text-orange-700 bg-orange-400'
+                : 'text-green-700 bg-green-400'
+            }`}>
+              {isConfirmedTurnover ? '↻' : isCheckoutTurnover ? '↻' : '↺'}
+            </div>
+          )}
         </div>
       )
     }
 
     return (
-      <div className="grid grid-cols-7 gap-1">
-        {dayHeaders}
-        {days}
+      <div className="space-y-2">
+        <h4 className="text-center font-semibold text-lg">
+          {displayMonth.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+        </h4>
+        <div className="grid grid-cols-7 gap-1">
+          {dayHeaders}
+          {days}
+        </div>
       </div>
     )
-  }
-
-  const getMonthOffset = (offset) => {
-    return new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1)
   }
 
   const nextMonth = () => {
@@ -353,14 +605,165 @@ function App() {
     return 0
   }
 
-  const calculateTotal = () => {
-    const nights = calculateNights()
-    if (nights >= 7) {
-      const weeks = Math.floor(nights / 7)
-      const extraNights = nights % 7
-      return (weeks * 1000) + (extraNights * 143) // £143 per night for partial weeks
+  // Prices the stay week-by-week from the check-in day, exactly as
+  // calculatePricing() does in booking_automation.gs. A stay crossing a month
+  // boundary is charged at each month's own rate, so the quote a guest sees on
+  // the site matches the quote the automation emails them.
+  const calculateBasePrice = () => {
+    if (!selectedStartDate || !selectedEndDate) return 0
+    if (calculateNights() < 7) return 0
+
+    let total = 0
+    let cursor = new Date(selectedStartDate)
+    const end = new Date(selectedEndDate)
+
+    while (cursor < end) {
+      const segmentEnd = new Date(cursor)
+      segmentEnd.setDate(segmentEnd.getDate() + 7)
+      if (segmentEnd > end) segmentEnd.setTime(end.getTime())
+
+      const segmentNights = Math.round((segmentEnd - cursor) / 86400000)
+      const weeklyRate = getWeeklyPrice(cursor)
+      if (!weeklyRate) return 0   // no published rate for that month — say so rather than guess
+
+      total += (weeklyRate / 7) * segmentNights
+      cursor = new Date(segmentEnd)
     }
-    return 0
+    return Math.round(total)
+  }
+
+  const calculateTotal = () => {
+    const base = calculateBasePrice()
+    if (!base) return 0
+    return base + getChristmasNewYearSurcharge(selectedStartDate, selectedEndDate)
+  }
+  
+  const getSurcharge = () => {
+    if (!selectedStartDate || !selectedEndDate) return 0
+    return getChristmasNewYearSurcharge(selectedStartDate, selectedEndDate)
+  }
+
+  const handleFormChange = (e) => {
+    setBookingFormData({
+      ...bookingFormData,
+      [e.target.name]: e.target.value
+    })
+  }
+
+  const generateMailtoLink = () => {
+    const subject = `Booking Request for Mission House - ${formatDate(selectedStartDate)} to ${formatDate(selectedEndDate)}`
+    const body = `Dear Mission House Team,
+
+I would like to request a booking for Mission House with the following details:
+
+BOOKING DETAILS:
+Check-in: ${formatDate(selectedStartDate)}
+Check-out: ${formatDate(selectedEndDate)}
+Duration: ${calculateNights()} nights
+Total Cost: £${calculateTotal()}
+
+GUEST INFORMATION:
+Name: ${bookingFormData.name}
+Email: ${bookingFormData.email}
+Phone: ${bookingFormData.phone}
+Number of Guests: ${bookingFormData.guests}
+Bedroom 3 config: ${bookingFormData.bed3}
+
+SPECIAL REQUESTS:
+${bookingFormData.message || 'None'}
+
+Please confirm availability and provide booking instructions.
+
+Best regards,
+${bookingFormData.name}`
+
+    return `mailto:rental@missionhouse.co.uk?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  }
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+    setSubmitStatus(null)
+
+    // Prepare form data for Formspree
+    const formData = new FormData()
+    formData.append('name', bookingFormData.name)
+    formData.append('email', bookingFormData.email)
+    formData.append('phone', bookingFormData.phone)
+    formData.append('guests', bookingFormData.guests)
+    formData.append('bed3', bookingFormData.bed3)
+    formData.append('message', bookingFormData.message)
+    formData.append('checkin', formatDate(selectedStartDate))
+    formData.append('checkout', formatDate(selectedEndDate))
+    formData.append('nights', calculateNights())
+    formData.append('total', `£${calculateTotal()}`)
+    formData.append('_subject', `Booking Request for Mission House - ${formatDate(selectedStartDate)} to ${formatDate(selectedEndDate)}`)
+
+    try {
+      // Try Formspree first (replace YOUR_FORM_ID with actual Formspree form ID)
+      const response = await fetch('https://formspree.io/f/xpwyzgnk', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        setSubmitStatus('success')
+        setBookingFormData({ name: '', email: '', phone: '', guests: '', bed3: '', message: '' })
+        // Close the form after 2 seconds and show success message
+        setTimeout(() => {
+          setShowBookingForm(false)
+          setSubmitStatus('success-closed')
+        }, 2000)
+      } else {
+        throw new Error('Formspree submission failed')
+      }
+    } catch (error) {
+      // Fall back to the guest's own mail client so the enquiry still reaches us.
+      console.warn('Booking form: Formspree submission failed, falling back to mailto.', error)
+      window.location.href = generateMailtoLink()
+      setSubmitStatus('mailto')
+    }
+
+    setIsSubmitting(false)
+  }
+
+  const handleContactSubmit = async (e) => {
+    e.preventDefault()
+    setIsSubmittingContact(true)
+    setContactSubmitStatus(null)
+
+    // Prepare form data for Formspree
+    const formData = new FormData()
+    formData.append('name', contactFormData.name)
+    formData.append('email', contactFormData.email)
+    formData.append('subject', contactFormData.subject)
+    formData.append('message', contactFormData.message)
+    formData.append('_subject', `${contactFormData.subject} - Mission House Contact Form`)
+
+    try {
+      const response = await fetch('https://formspree.io/f/xpwyzgnk', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        setContactSubmitStatus('success')
+        setContactFormData({ name: '', email: '', subject: 'General Enquiry', message: '' })
+      } else {
+        setContactSubmitStatus('error')
+      }
+    } catch (error) {
+      console.error('Contact form submission failed:', error)
+      setContactSubmitStatus('error')
+    }
+
+    setIsSubmittingContact(false)
   }
 
   return (
@@ -372,12 +775,16 @@ function App() {
           <div className="hidden md:flex space-x-6">
             <a href="#home" className="hover:text-primary transition-colors">Home</a>
             <a href="#property" className="hover:text-primary transition-colors">Property</a>
+            <a href="#pricing" className="hover:text-primary transition-colors">Pricing</a>
             <a href="#gallery" className="hover:text-primary transition-colors">Gallery</a>
             <a href="#location" className="hover:text-primary transition-colors">Location</a>
             <a href="#getting-here" className="hover:text-primary transition-colors">Getting Here</a>
             <a href="#booking" className="hover:text-primary transition-colors">Booking</a>
+            <a href="#local-info" className="hover:text-primary transition-colors">Local Info</a>
+            <a href="#faq" className="hover:text-primary transition-colors">FAQ</a>
+            <a href="#contact" className="hover:text-primary transition-colors">Contact</a>
           </div>
-          <Button onClick={() => setShowBookingForm(true)}>Check Availability</Button>
+          <Button onClick={() => document.getElementById('booking').scrollIntoView({ behavior: 'smooth' })}>Check Availability</Button>
         </div>
       </nav>
 
@@ -398,7 +805,7 @@ function App() {
             Mission House
           </h1>
           <p className="text-xl md:text-2xl mb-8 animate-fade-in-up">
-            Spectacular Views Across the Sands to Vallay
+            Outer Hebrides Holiday Let · Spectacular Views Across the Sands to Vallay
           </p>
           <div className="flex flex-wrap justify-center gap-4 mb-8">
             <Badge variant="secondary" className="text-lg px-4 py-2">
@@ -411,10 +818,10 @@ function App() {
             </Badge>
             <Badge variant="secondary" className="text-lg px-4 py-2">
               <MapPin className="w-4 h-4 mr-2" />
-              North Uist
+              North Uist, Outer Hebrides
             </Badge>
           </div>
-          <Button size="lg" onClick={() => setShowBookingForm(true)} className="animate-bounce">
+          <Button size="lg" onClick={() => document.getElementById('booking').scrollIntoView({ behavior: 'smooth' })} className="animate-bounce">
             Book Your Stay
           </Button>
         </div>
@@ -459,14 +866,20 @@ function App() {
             <div>
               <h3 className="text-3xl font-bold mb-6">Modern Comfort in Wild Beauty</h3>
               <p className="text-lg text-muted-foreground mb-6">
-                Experience the raw beauty of the Outer Hebrides from the comfort of this beautifully 
-                appointed holiday home. With panoramic views that change with every tide, Mission House 
+                Experience the raw beauty of the Outer Hebrides from the comfort of this comfortable 
+                and well-equipped holiday home. With panoramic views that change with every tide, Mission House 
                 provides a front-row seat to one of Scotland's most dramatic landscapes.
               </p>
-              <div className="bg-primary/10 rounded-lg p-4 mb-6">
+              <div className="bg-primary/10 rounded-lg p-4 mb-4">
                 <p className="font-medium text-primary mb-2">Everything Provided</p>
                 <p className="text-sm text-muted-foreground">
                   All bedding, linen, and towels are provided for your comfort and convenience.
+                </p>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+                <p className="font-medium text-amber-800 mb-2">Pet Policy</p>
+                <p className="text-sm text-amber-700">
+                  Sorry, but pets are not allowed at the property.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -505,39 +918,187 @@ function App() {
             </div>
           </div>
 
-          {/* Pricing */}
-          <Card className="max-w-3xl mx-auto">
-            <CardHeader className="text-center">
-              <CardTitle className="text-3xl">Weekly Stays</CardTitle>
-              <CardDescription>Minimum 7 nights · up to 6 guests · all linen included</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-6">
-                {[
-                  { month: 'Jan', rate: 780 }, { month: 'Feb', rate: 780 },
-                  { month: 'Mar', rate: 925 }, { month: 'Apr', rate: 1200 },
-                  { month: 'May', rate: 1350 }, { month: 'Jun', rate: 1350 },
-                  { month: 'Jul', rate: 1400 }, { month: 'Aug', rate: 1400 },
-                  { month: 'Sep', rate: 1300 }, { month: 'Oct', rate: 1000 },
-                  { month: 'Nov', rate: 780 }, { month: 'Dec', rate: 780 },
-                ].map(({ month, rate }) => (
-                  <div key={month} className="text-center p-3 bg-muted/50 rounded-lg">
-                    <div className="text-xs font-medium text-muted-foreground mb-1">{month}</div>
-                    <div className="text-lg font-bold">£{rate.toLocaleString()}</div>
-                    <div className="text-xs text-muted-foreground">/ week</div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="py-20 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-6">Pricing & Rates</h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Transparent seasonal pricing for your perfect Hebridean escape. All rates include accommodation for up to 6 guests.
+            </p>
+          </div>
+
+          <div className="max-w-5xl mx-auto">
+            {/* Pricing Overview Card */}
+            <Card className="mb-8">
+              <CardHeader className="text-center">
+                <CardTitle className="text-3xl">Weekly Stays</CardTitle>
+                <CardDescription className="text-lg">Minimum 7 nights booking required</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-6 mb-6">
+                  <div className="text-center p-6 bg-primary/5 rounded-lg">
+                    <div className="text-4xl font-bold text-primary mb-2">
+                      {getPriceRange()}
+                    </div>
+                    <p className="text-muted-foreground">per week (seasonal pricing)</p>
                   </div>
-                ))}
-              </div>
-              <p className="text-xs text-center text-muted-foreground mb-6">
-                Rates shown for 2027. Christmas &amp; New Year bookings (weeks containing 25 Dec or 1 Jan) include a £200 supplement.
+                  <div className="text-center p-6 bg-primary/5 rounded-lg">
+                    <div className="text-4xl font-bold text-primary mb-2">Up to 6</div>
+                    <p className="text-muted-foreground">guests included</p>
+                  </div>
+                </div>
+
+                {/* Mini Pricing Table */}
+                {Object.keys(pricingData).length > 0 && (
+                  <div className="border-t pt-6">
+                    <h4 className="font-semibold text-lg mb-4 text-center">Quick Pricing Reference</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((month) => {
+                        const pricing = pricingData[month]
+                        if (pricing) {
+                          return (
+                            <div key={month} className="text-center p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
+                              <div className="text-sm font-medium text-muted-foreground mb-1">{month}</div>
+                              <div className="text-lg font-bold">£{pricing.weeklyPrice}</div>
+                              {pricing.additional > 0 && (
+                                <div className="text-xs text-amber-600 mt-1">+£{pricing.additional}</div>
+                              )}
+                            </div>
+                          )
+                        }
+                        return null
+                      })}
+                    </div>
+                    <p className="text-sm text-center text-muted-foreground mt-4">
+                      <strong>Christmas & New Year Surcharge:</strong> Weeks containing December 25th or January 1st include an additional charge (shown above in amber).
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Special Pricing Notes */}
+            <div className="grid md:grid-cols-3 gap-6 mb-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center text-lg">
+                    <Star className="w-5 h-5 mr-2 text-amber-500" />
+                    Christmas & New Year
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground mb-2">
+                    Bookings that include December 25th or January 1st are subject to a holiday surcharge.
+                  </p>
+                  <p className="text-sm text-amber-700 font-medium">
+                    Surcharge amount is shown in the pricing table above.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center text-lg">
+                    <Calendar className="w-5 h-5 mr-2 text-primary" />
+                    Flexible Stays
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground mb-2">
+                    Flexible stays available on request, outside high season (May-August).
+                  </p>
+                  <p className="text-sm text-primary font-medium">
+                    Contact us to enquire about flexible dates
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center text-lg">
+                    <Star className="w-5 h-5 mr-2 text-green-600" />
+                    Extended Stay Discount
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground mb-2">
+                    Discount available for bookings of 3 weeks or more outside High Season.
+                  </p>
+                  <p className="text-sm text-green-700 font-medium">
+                    Contact us for special rates on longer stays
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* What's Included */}
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle className="text-2xl">What's Included</CardTitle>
+                <CardDescription>Everything you need for a comfortable stay</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                    <div>
+                      <p className="font-medium">All Bedding & Linen</p>
+                      <p className="text-sm text-muted-foreground">Fresh linens provided</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                    <div>
+                      <p className="font-medium">Towels</p>
+                      <p className="text-sm text-muted-foreground">Bath & hand towels</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                    <div>
+                      <p className="font-medium">Utilities</p>
+                      <p className="text-sm text-muted-foreground">Electricity, heating, WiFi</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                    <div>
+                      <p className="font-medium">Wood for Burners</p>
+                      <p className="text-sm text-muted-foreground">Initial supply included</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                    <div>
+                      <p className="font-medium">Kitchen Essentials</p>
+                      <p className="text-sm text-muted-foreground">Basic supplies provided</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                    <div>
+                      <p className="font-medium">Parking</p>
+                      <p className="text-sm text-muted-foreground">Ample space on-site</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* CTA */}
+            <div className="text-center">
+              <Button size="lg" onClick={() => document.getElementById('booking').scrollIntoView({ behavior: 'smooth' })}>
+                Check Availability & Book
+              </Button>
+              <p className="text-sm text-muted-foreground mt-4">
+                Select your dates in the booking calendar to see exact pricing for your stay
               </p>
-              <div className="text-center">
-                <Button size="lg" onClick={() => document.getElementById('booking').scrollIntoView({ behavior: 'smooth' })}>
-                  Check Availability
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -712,43 +1273,80 @@ function App() {
               <CardHeader>
                 <CardTitle className="text-2xl text-center">Availability Calendar</CardTitle>
                 <CardDescription className="text-center">
-                  Select your arrival and departure dates (minimum 7 nights)
+                  <div className="mb-2">
+                    <strong>Friday to Friday lettings only</strong> (minimum 7 nights)
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Outside high season (May-August), flexible dates may be possible - please contact us to enquire
+                  </div>
+                  {isLoadingBookings && !loadError && (
+                    <div className="text-sm text-muted-foreground mt-2">
+                      📅 Loading latest availability...
+                    </div>
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-6">
-                  {/* 3-Month Calendar */}
-                  <div>
+                  {/* If the availability feed fails we say so. Showing an empty
+                      calendar would present booked weeks as free. */}
+                  {loadError && (
+                    <div
+                      role="alert"
+                      className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"
+                    >
+                      <p className="font-semibold mb-1">Live availability is temporarily unavailable</p>
+                      <p>
+                        We can&apos;t reach our booking calendar at the moment, so the dates below may not
+                        be up to date. Please send us an enquiry and we&apos;ll confirm availability by
+                        return — or email{' '}
+                        <a href="mailto:rental@missionhouse.co.uk" className="underline font-medium">
+                          rental@missionhouse.co.uk
+                        </a>.
+                      </p>
+                    </div>
+                  )}
+                  {/* Calendar */}
+                  <div className="mb-8">
                     <div className="flex items-center justify-between mb-4">
                       <Button variant="outline" size="sm" onClick={prevMonth}>
                         <ChevronLeft className="w-4 h-4" />
                       </Button>
-                      <span className="text-sm text-muted-foreground">
-                        {getMonthOffset(0).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-                        {' – '}
-                        {getMonthOffset(2).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-                      </span>
+                      <h3 className="text-lg font-semibold">
+                        Availability Calendar
+                      </h3>
                       <Button variant="outline" size="sm" onClick={nextMonth}>
                         <ChevronRight className="w-4 h-4" />
                       </Button>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {[0, 1, 2].map(offset => {
-                        const m = getMonthOffset(offset)
-                        return (
-                          <div key={offset}>
-                            <h3 className="text-sm font-semibold text-center mb-2">
-                              {m.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-                            </h3>
-                            {renderCalendar(m)}
-                          </div>
-                        )
-                      })}
+                    {/* Responsive multi-month calendar */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {renderCalendar(0)}
+                      <div className="hidden sm:block">{renderCalendar(1)}</div>
+                      <div className="hidden xl:block">{renderCalendar(2)}</div>
                     </div>
-                    <div className="mt-4 flex flex-wrap gap-4 text-sm">
+                    
+                    <div className="mt-4 space-y-2 text-sm">
                       <div className="flex items-center space-x-2">
                         <div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div>
                         <span>Booked</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 bg-orange-200 border-2 border-orange-400 rounded relative">
+                          <div className="absolute top-0 right-0 text-xs text-orange-700 font-bold">↻</div>
+                        </div>
+                        <span>Checkout Turnover (Check-in Available)</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 bg-green-200 border-2 border-green-400 rounded relative">
+                          <div className="absolute top-0 right-0 text-xs text-green-700 font-bold">↺</div>
+                        </div>
+                        <span>Check-in Turnover (Checkout Available)</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 bg-purple-200 border-2 border-purple-400 rounded relative">
+                          <div className="absolute top-0 right-0 text-xs text-purple-700 font-bold">↻</div>
+                        </div>
+                        <span>Confirmed Turnover Day</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <div className="w-4 h-4 bg-primary rounded"></div>
@@ -760,10 +1358,11 @@ function App() {
                       </div>
                     </div>
                   </div>
-                  {/* Booking Summary */}
-                  <div className="border-t pt-6">
-                  <div className="grid lg:grid-cols-2 gap-8">
-                  <div className="space-y-6">
+
+                  {/* Booking Summary - Side by side with calendar on large screens */}
+                  <div className="grid lg:grid-cols-2 gap-8 mt-8">
+                    <div></div>
+                    <div className="space-y-6">
                     <div>
                       <h4 className="font-semibold mb-4">Your Selection</h4>
                       {selectedStartDate && (
@@ -788,17 +1387,31 @@ function App() {
                         <div className="space-y-2">
                           {calculateNights() >= 7 && (
                             <>
+                              <div className="text-xs text-muted-foreground mb-2">
+                                {getMonthName(selectedStartDate.getMonth())} pricing: £{getWeeklyPrice(selectedStartDate)}/week
+                              </div>
                               <div className="flex justify-between">
-                                <span>{Math.floor(calculateNights() / 7)} week(s) × £1,000</span>
-                                <span>£{Math.floor(calculateNights() / 7) * 1000}</span>
+                                <span>{Math.floor(calculateNights() / 7)} week(s) × £{getWeeklyPrice(selectedStartDate)}</span>
+                                <span>£{Math.floor(calculateNights() / 7) * getWeeklyPrice(selectedStartDate)}</span>
                               </div>
                               {calculateNights() % 7 > 0 && (
                                 <div className="flex justify-between">
-                                  <span>{calculateNights() % 7} extra night(s) × £143</span>
-                                  <span>£{(calculateNights() % 7) * 143}</span>
+                                  <span>{calculateNights() % 7} extra night(s) × £{Math.round(getWeeklyPrice(selectedStartDate) / 7)}</span>
+                                  <span>£{(calculateNights() % 7) * Math.round(getWeeklyPrice(selectedStartDate) / 7)}</span>
                                 </div>
                               )}
-                              <div className="border-t pt-2 flex justify-between font-semibold">
+                              {getSurcharge() > 0 && (
+                                <>
+                                  <div className="flex justify-between text-amber-700">
+                                    <span>Christmas/New Year surcharge</span>
+                                    <span>£{getSurcharge()}</span>
+                                  </div>
+                                  <div className="text-xs text-amber-600 italic">
+                                    Applies to weeks containing Dec 25th or Jan 1st
+                                  </div>
+                                </>
+                              )}
+                              <div className="border-t pt-2 flex justify-between font-semibold text-lg">
                                 <span>Total</span>
                                 <span>£{calculateTotal()}</span>
                               </div>
@@ -816,10 +1429,8 @@ function App() {
                         Request Booking
                       </Button>
                     )}
+                    </div>
                   </div>
-                </div>
-                </div>
-                </div>
               </CardContent>
             </Card>
           </div>
@@ -848,58 +1459,438 @@ function App() {
         </div>
       )}
 
-      {/* Booking Form Modal */}
-      {showBookingForm && (
+      {/* Success Message After Form Closes */}
+      {submitStatus === 'success-closed' && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle>Request Booking</CardTitle>
-              <CardDescription>Send us your booking request</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {selectedStartDate && selectedEndDate && (
-                <div className="bg-muted p-4 rounded-lg">
-                  <p><strong>Check-in:</strong> {formatDate(selectedStartDate)}</p>
-                  <p><strong>Check-out:</strong> {formatDate(selectedEndDate)}</p>
-                  <p><strong>Duration:</strong> {calculateNights()} nights</p>
-                  <p><strong>Total:</strong> £{calculateTotal()}</p>
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium mb-2">Your Name</label>
-                <input type="text" className="w-full p-2 border rounded-md" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Email</label>
-                <input type="email" className="w-full p-2 border rounded-md" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Phone</label>
-                <input type="tel" className="w-full p-2 border rounded-md" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Number of Guests</label>
-                <select className="w-full p-2 border rounded-md">
-                  <option>1-2 guests</option>
-                  <option>3-4 guests</option>
-                  <option>5-6 guests</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Special Requests</label>
-                <textarea className="w-full p-2 border rounded-md h-24" 
-                  placeholder="Any special requirements or questions..."></textarea>
-              </div>
-              <div className="flex space-x-2">
-                <Button className="flex-1">Send Request</Button>
-                <Button variant="outline" onClick={() => setShowBookingForm(false)}>
-                  Cancel
-                </Button>
-              </div>
+          <Card className="w-full max-w-md text-center">
+            <CardContent className="p-8">
+              <div className="text-green-600 text-6xl mb-4">✅</div>
+              <h3 className="text-2xl font-bold mb-4">Booking Request Sent!</h3>
+              <p className="text-muted-foreground mb-6">
+                Thank you for your booking request. We'll respond within 24 hours to confirm availability and provide booking instructions.
+              </p>
+              <Button onClick={() => setSubmitStatus(null)} className="w-full">
+                Continue Browsing
+              </Button>
             </CardContent>
           </Card>
         </div>
       )}
+
+      {/* Enhanced Booking Form Modal */}
+      {showBookingForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle>Request Booking</CardTitle>
+              <CardDescription>
+                {selectedStartDate && selectedEndDate 
+                  ? `${formatDate(selectedStartDate)} to ${formatDate(selectedEndDate)}`
+                  : 'Please select your dates first'
+                }
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {submitStatus === 'success' && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                  <p className="text-green-800 font-medium">✅ Booking request sent successfully!</p>
+                  <p className="text-green-600 text-sm">We'll respond within 24 hours.</p>
+                </div>
+              )}
+              
+              {submitStatus === 'mailto' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <p className="text-blue-800 font-medium">📧 Email client opened</p>
+                  <p className="text-blue-600 text-sm">Please send the pre-filled email to complete your booking request.</p>
+                </div>
+              )}
+
+              <form onSubmit={handleFormSubmit} className="space-y-4">
+                {selectedStartDate && selectedEndDate && (
+                  <div className="bg-muted p-4 rounded-lg space-y-2">
+                    <p><strong>Check-in:</strong> {formatDate(selectedStartDate)}</p>
+                    <p><strong>Check-out:</strong> {formatDate(selectedEndDate)}</p>
+                    <p><strong>Duration:</strong> {calculateNights()} nights</p>
+                    <div className="border-t pt-2 mt-2">
+                      <p className="text-sm text-muted-foreground mb-1">
+                        {getMonthName(selectedStartDate.getMonth())} rate: £{getWeeklyPrice(selectedStartDate)}/week
+                      </p>
+                      <p><strong>Base price:</strong> £{calculateBasePrice()}</p>
+                      {getSurcharge() > 0 && (
+                        <p className="text-amber-700"><strong>Holiday surcharge:</strong> £{getSurcharge()}</p>
+                      )}
+                      <p className="text-lg font-bold mt-2"><strong>Total:</strong> £{calculateTotal()}</p>
+                    </div>
+                  </div>
+                )}
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Your Name *</label>
+                  <input 
+                    type="text" 
+                    name="name"
+                    value={bookingFormData.name}
+                    onChange={handleFormChange}
+                    className="w-full p-2 border rounded-md" 
+                    required 
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Email *</label>
+                  <input 
+                    type="email" 
+                    name="email"
+                    value={bookingFormData.email}
+                    onChange={handleFormChange}
+                    className="w-full p-2 border rounded-md" 
+                    required 
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Phone *</label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={bookingFormData.phone}
+                    onChange={handleFormChange}
+                    className="w-full p-2 border rounded-md"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Number of Guests *</label>
+                  <input
+                    type="number"
+                    name="guests"
+                    value={bookingFormData.guests}
+                    onChange={handleFormChange}
+                    min="1"
+                    max="6"
+                    placeholder="Enter number of guests (max 6)"
+                    className="w-full p-2 border rounded-md"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Bedroom 3 configuration *</label>
+                  <select
+                    name="bed3"
+                    value={bookingFormData.bed3}
+                    onChange={handleFormChange}
+                    className="w-full p-2 border rounded-md"
+                    required
+                  >
+                    <option value="">Please select...</option>
+                    <option value="Single">Single bed</option>
+                    <option value="Twin">Twin (two single beds)</option>
+                    <option value="Double">Double bed</option>
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-1">Bedroom 3 can be configured as a single, twin, or double — please let us know your preference.</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Special Requests</label>
+                  <textarea 
+                    name="message"
+                    value={bookingFormData.message}
+                    onChange={handleFormChange}
+                    className="w-full p-2 border rounded-md h-24" 
+                    placeholder="Any special requirements or questions..."
+                  />
+                </div>
+                
+                <div className="flex space-x-2">
+                  <Button 
+                    type="submit" 
+                    className="flex-1" 
+                    disabled={isSubmitting || !selectedStartDate || !selectedEndDate}
+                  >
+                    {isSubmitting ? 'Sending...' : 'Send Request'}
+                  </Button>
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    onClick={() => {
+                      setShowBookingForm(false)
+                      setSubmitStatus(null)
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+                
+                <div className="text-xs text-muted-foreground">
+                  <p>* Required fields</p>
+                  <p>We'll respond to your booking request within 24 hours.</p>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Local Information Section */}
+      <section id="local-info" className="py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-6">Local Information</h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Discover the best of North Uist and the Outer Hebrides
+            </p>
+          </div>
+
+          <div className="max-w-5xl mx-auto">
+            {isLoadingLinks ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Loading local information...</p>
+              </div>
+            ) : localLinks.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">No local links available at the moment.</p>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {/* Group links by category */}
+                {[...new Set(localLinks.map(link => link.category))].map(category => (
+                  <div key={category}>
+                    <h3 className="text-2xl font-bold mb-4 text-primary">{category}</h3>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {localLinks
+                        .filter(link => link.category === category)
+                        .map((link, index) => (
+                          <Card key={index} className="hover:shadow-lg transition-shadow">
+                            <CardHeader>
+                              <CardTitle className="text-lg">
+                                <a 
+                                  href={link.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:underline flex items-center gap-2"
+                                >
+                                  {link.title}
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                  </svg>
+                                </a>
+                              </CardTitle>
+                            </CardHeader>
+                            {link.description && (
+                              <CardContent>
+                                <p className="text-muted-foreground text-sm">{link.description}</p>
+                              </CardContent>
+                            )}
+                          </Card>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section id="faq" className="py-20 bg-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-6">Frequently Asked Questions</h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Everything you need to know about booking Mission House
+            </p>
+          </div>
+
+          <div className="max-w-3xl mx-auto space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Where is Mission House located?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Mission House is located in North Uist, part of the Outer Hebrides islands off the west coast of Scotland. The property offers spectacular views of Vallay Island and the Atlantic Ocean. North Uist is accessible via ferry from Skye or by air to Benbecula.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>What are the booking requirements?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  We operate Friday-to-Friday weekly bookings with a minimum stay of 7 nights. Outside high season (May-August), flexible dates may be available on request. Please contact us to enquire about alternative arrangements.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>How many people can stay at Mission House?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Mission House sleeps up to 6 guests across 3 bedrooms: one king bedroom, one twin bedroom, and one single bedroom with an additional pull-out bed.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>What amenities are included?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  The property includes WiFi, oil-fired central heating, a wood burner, Smart TV, fully equipped kitchen, washing machine, private parking, and outdoor seating areas. All bedding and towels are provided.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Are pets allowed?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Unfortunately, pets are not permitted at Mission House to maintain the property for guests with allergies.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>How do I get to North Uist?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  You can reach North Uist by CalMac ferry from Uig on the Isle of Skye (1 hour 45 minutes) or fly to Benbecula Airport (15 minutes from the property). The ferry journey offers stunning views of the Hebrides. We recommend booking ferry tickets in advance, especially during summer.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>What is the pricing structure?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Weekly rates range from £750 to £1,350 depending on the season. High season (July-August) is £1,350 per week. Bookings including Christmas (Dec 25) or New Year (Jan 1) have a £200 surcharge. Extended stays of 3+ weeks outside high season may qualify for discounts.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Is the property licensed?</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Yes, Mission House is a fully licensed holiday let (Licence Number: ES01445F) with an Energy Performance Certificate rating of Band D (68).
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Contact Us Section */}
+      <section id="contact" className="py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-6">Contact Us</h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Have a question or special request? Get in touch with us.
+            </p>
+          </div>
+
+          <div className="max-w-2xl mx-auto">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-2xl text-center">Send us a message</CardTitle>
+                <CardDescription className="text-center">
+                  We'll get back to you as soon as possible
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleContactSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Name *</label>
+                    <input
+                      type="text"
+                      required
+                      className="w-full p-3 border rounded-md"
+                      value={contactFormData.name}
+                      onChange={(e) => setContactFormData({...contactFormData, name: e.target.value})}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Email *</label>
+                    <input
+                      type="email"
+                      required
+                      className="w-full p-3 border rounded-md"
+                      value={contactFormData.email}
+                      onChange={(e) => setContactFormData({...contactFormData, email: e.target.value})}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Subject *</label>
+                    <select
+                      className="w-full p-3 border rounded-md"
+                      value={contactFormData.subject}
+                      onChange={(e) => setContactFormData({...contactFormData, subject: e.target.value})}
+                    >
+                      <option>General Enquiry</option>
+                      <option>Booking Request</option>
+                      <option>Flexible Dates Request</option>
+                      <option>Property Information</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Message *</label>
+                    <textarea
+                      required
+                      rows={6}
+                      className="w-full p-3 border rounded-md"
+                      value={contactFormData.message}
+                      onChange={(e) => setContactFormData({...contactFormData, message: e.target.value})}
+                      placeholder="Please provide details about your enquiry..."
+                    />
+                  </div>
+
+                  {contactSubmitStatus === 'success' && (
+                    <div className="bg-green-50 border border-green-200 text-green-800 p-4 rounded-md">
+                      Thank you! Your message has been sent successfully. We'll get back to you soon.
+                    </div>
+                  )}
+
+                  {contactSubmitStatus === 'error' && (
+                    <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-md">
+                      Sorry, there was an error sending your message. Please try emailing us directly at rental@missionhouse.co.uk
+                    </div>
+                  )}
+
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    size="lg"
+                    disabled={isSubmittingContact}
+                  >
+                    {isSubmittingContact ? 'Sending...' : 'Send Message'}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
 
       {/* Contact Footer */}
       <footer className="bg-primary text-primary-foreground py-12">
@@ -912,16 +1903,21 @@ function App() {
             </div>
             <div className="flex items-center space-x-2">
               <Mail className="w-5 h-5" />
-              <span>bookings@missionhouse.co.uk</span>
+              <span>rental@missionhouse.co.uk</span>
             </div>
             <div className="flex items-center space-x-2">
               <MapPin className="w-5 h-5" />
               <span>North Uist, Outer Hebrides</span>
             </div>
           </div>
-          <p className="text-primary-foreground/80">
-            Licensed holiday let • Weekly bookings only • Spectacular Vallay views
-          </p>
+          <div className="space-y-2">
+            <p className="text-primary-foreground/80">
+              Licensed holiday let • Weekly bookings only • Spectacular Vallay views
+            </p>
+            <p className="text-sm text-primary-foreground/70">
+              Licence Number: ES01445F • Energy Performance Certificate: Band D (68)
+            </p>
+          </div>
         </div>
       </footer>
     </div>
