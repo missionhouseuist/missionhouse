@@ -1851,11 +1851,25 @@ ${bookingFormData.name}`
                       onChange={(e) => setContactFormData({...contactFormData, subject: e.target.value})}
                     >
                       <option>General Enquiry</option>
-                      <option>Booking Request</option>
                       <option>Flexible Dates Request</option>
                       <option>Property Information</option>
                       <option>Other</option>
                     </select>
+                    {/* "Booking Request" was removed: this form captures no dates,
+                        guest count or bed configuration, so a booking enquiry sent
+                        through it cannot be priced or checked against availability.
+                        The calendar captures all of it. */}
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Booking specific dates?{' '}
+                      <a
+                        href="#booking"
+                        className="text-primary underline font-medium"
+                        onClick={() => setShowBookingForm(false)}
+                      >
+                        Use the availability calendar
+                      </a>{' '}
+                      — you&apos;ll see the price straight away and we&apos;ll have everything we need.
+                    </p>
                   </div>
 
                   <div>
