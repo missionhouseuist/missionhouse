@@ -2,8 +2,23 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button.jsx'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx'
 import { Badge } from '@/components/ui/badge.jsx'
-import { Calendar, MapPin, Users, Wifi, Tv, Coffee, Car, TreePine, Home, Phone, Mail, Star, Plane, Ship, Clock, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Calendar, MapPin, Users, Wifi, Tv, Coffee, Car, TreePine, Home, Phone, Mail, Star, Plane, Ship, Clock, ChevronLeft, ChevronRight, Menu, X } from 'lucide-react'
 import './App.css'
+
+// One source for the navigation, rendered twice: the desktop row and the
+// mobile drawer. Adding a section here adds it to both.
+const NAV_LINKS = [
+  ['#home', 'Home'],
+  ['#property', 'Property'],
+  ['#pricing', 'Pricing'],
+  ['#gallery', 'Gallery'],
+  ['#location', 'Location'],
+  ['#getting-here', 'Getting Here'],
+  ['#booking', 'Booking'],
+  ['#local-info', 'Local Info'],
+  ['#faq', 'FAQ'],
+  ['#contact', 'Contact'],
+]
 
 // Import actual Mission House photos
 import homepage2 from './assets/homepage2.png'
@@ -79,6 +94,7 @@ function App() {
   const [rateIndex, setRateIndex] = useState({})        // 'YYYY-Month' -> weekly rate
   const [xmasSupplement, setXmasSupplement] = useState(200)
   const [loadError, setLoadError] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   // Live data from the Apps Script Web App — bookings, pricing and local links
   // in one call. See doGet() in booking_automation.gs.
@@ -151,6 +167,20 @@ function App() {
     
     return () => clearInterval(autoScroll)
   }, [])
+
+  // Escape closes the topmost overlay. Without this the gallery lightbox and
+  // the booking form could only be dismissed by clicking, which left keyboard
+  // users stuck inside them.
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== 'Escape') return
+      if (selectedGalleryImage) setSelectedGalleryImage(null)
+      else if (showBookingForm) setShowBookingForm(false)
+      else if (mobileNavOpen) setMobileNavOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [selectedGalleryImage, showBookingForm, mobileNavOpen])
 
   const isDateBooked = (date) => {
     return bookedDates.some(booking => {
@@ -555,10 +585,31 @@ function App() {
         className += "hover:bg-muted text-foreground"
       }
 
+      // A day is selectable on exactly the terms handleDateClick applies, plus
+      // confirmed turnover days, which the styling has always shown as
+      // unavailable but which were still clickable.
+      const isSelectable = isFriday && !isPast && !isConfirmedTurnover &&
+                           !(isBooked && !isTurnover)
+
+      const stateLabel =
+        isPast               ? 'in the past' :
+        isConfirmedTurnover  ? 'unavailable, changeover day' :
+        (isBooked && !isTurnover) ? 'booked' :
+        !isFriday            ? 'not a Friday — stays run Friday to Friday' :
+        isSelected           ? 'selected' :
+        isInRange            ? 'part of your selected stay' :
+        isCheckoutTurnover   ? 'available, changeover day' :
+        isCheckinTurnover    ? 'available, changeover day' :
+                               'available'
+
       days.push(
-        <div
+        <button
+          type="button"
           key={day}
-          className={className}
+          className={className + " w-full"}
+          disabled={!isSelectable}
+          aria-label={`${day} ${MONTH_NAMES[displayMonth.getMonth()]} ${displayMonth.getFullYear()} — ${stateLabel}`}
+          aria-pressed={isSelected || undefined}
           onClick={() => handleDateClick(date)}
           title={
             isConfirmedTurnover ? "Confirmed turnover day - checkout & check-in" :
@@ -578,7 +629,7 @@ function App() {
               {isConfirmedTurnover ? '↻' : isCheckoutTurnover ? '↻' : '↺'}
             </div>
           )}
-        </div>
+        </button>
       )
     }
 
@@ -780,22 +831,49 @@ ${bookingFormData.name}`
     <div className="min-h-screen bg-background">
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-primary">Mission House</h1>
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center gap-2">
+          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-primary whitespace-nowrap">Mission House</h1>
           <div className="hidden md:flex space-x-6">
-            <a href="#home" className="hover:text-primary transition-colors">Home</a>
-            <a href="#property" className="hover:text-primary transition-colors">Property</a>
-            <a href="#pricing" className="hover:text-primary transition-colors">Pricing</a>
-            <a href="#gallery" className="hover:text-primary transition-colors">Gallery</a>
-            <a href="#location" className="hover:text-primary transition-colors">Location</a>
-            <a href="#getting-here" className="hover:text-primary transition-colors">Getting Here</a>
-            <a href="#booking" className="hover:text-primary transition-colors">Booking</a>
-            <a href="#local-info" className="hover:text-primary transition-colors">Local Info</a>
-            <a href="#faq" className="hover:text-primary transition-colors">FAQ</a>
-            <a href="#contact" className="hover:text-primary transition-colors">Contact</a>
+            {NAV_LINKS.map(([href, label]) => (
+              <a key={href} href={href} className="hover:text-primary transition-colors">{label}</a>
+            ))}
           </div>
-          <Button onClick={() => document.getElementById('booking').scrollIntoView({ behavior: 'smooth' })}>Check Availability</Button>
+          <div className="flex items-center gap-1">
+            <Button
+              className="text-xs sm:text-sm px-3 sm:px-4 whitespace-nowrap"
+              onClick={() => document.getElementById('booking').scrollIntoView({ behavior: 'smooth' })}
+            >
+              Check Availability
+            </Button>
+            <button
+              type="button"
+              className="md:hidden p-2 rounded-md hover:bg-muted transition-colors"
+              aria-label={mobileNavOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileNavOpen}
+              aria-controls="mobile-nav"
+              onClick={() => setMobileNavOpen(open => !open)}
+            >
+              {mobileNavOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
         </div>
+
+        {mobileNavOpen && (
+          <div id="mobile-nav" className="md:hidden border-t bg-white">
+            <div className="container mx-auto px-4 flex flex-col">
+              {NAV_LINKS.map(([href, label]) => (
+                <a
+                  key={href}
+                  href={href}
+                  onClick={() => setMobileNavOpen(false)}
+                  className="py-3 border-b last:border-b-0 hover:text-primary transition-colors"
+                >
+                  {label}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Hero Section */}
