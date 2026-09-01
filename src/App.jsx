@@ -370,8 +370,10 @@ function App() {
     { src: bedroom3a, alt: "Flexible bedroom", category: "Bedrooms" },
     
     // Bathrooms
-    { src: mainBathroom, alt: "Main bathroom", category: "Bathrooms" },
-    { src: upstairsBathroom, alt: "Upstairs bathroom", category: "Bathrooms" },
+    // fit: 'contain' — a cropped bathroom loses the fittings that make it
+    // worth showing. Small rooms photograph wide and crop badly.
+    { src: mainBathroom, alt: "Main bathroom", category: "Bathrooms", fit: 'contain' },
+    { src: upstairsBathroom, alt: "Upstairs bathroom", category: "Bathrooms", fit: 'contain' },
     
     // Views & Location
     { src: vallayView, alt: "Spectacular Vallay views from bedroom", category: "Views & Location" },
@@ -879,10 +881,15 @@ ${bookingFormData.name}`
       {/* Hero Section */}
       <section id="home" className="relative h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
+          {/* object-contain, deliberately. The hero section is h-screen, so on a
+              phone its container is portrait while every hero photograph is
+              landscape — cover would crop away most of the width. The sources
+              are 1024x767 and smaller, so cover also upscales them heavily.
+              Letterboxing is the lesser evil until there are larger images. */}
           <img 
             src={heroImages[selectedImage].src} 
             alt={heroImages[selectedImage].alt}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
             style={{backgroundColor: 'rgba(0,0,0,0.1)'}}
           />
           <div className="absolute inset-0 bg-black/40"></div>
@@ -1223,7 +1230,7 @@ ${bookingFormData.name}`
                   src={image.src}
                   alt={image.alt}
                   loading="lazy"
-                  className="w-full h-64 object-cover bg-gray-50 group-hover:scale-105 transition-transform duration-300"
+                  className={`w-full h-64 ${image.fit === 'contain' ? 'object-contain' : 'object-cover'} bg-gray-50 group-hover:scale-105 transition-transform duration-300`}
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-end">
                   <div className="p-3 text-white opacity-0 group-hover:opacity-100 transition-opacity">
